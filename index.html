@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JS Snippets</title>
+  <style>
+    body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 1.5rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #ddd; }
+    th { background: #f5f5f5; }
+    code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
+    a { color: #0366d6; }
+  </style>
+</head>
+<body>
+  <h1>JS Snippets</h1>
+  <p>Hosted JavaScript snippets that can be injected into any page via URL.</p>
+
+  <h2>Available scripts</h2>
+  <table>
+    <thead>
+      <tr><th>Script</th><th>Description</th><th>Inject URL</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><a href="js/example.js">example.js</a></td>
+        <td>Shows an alert with the current page title.</td>
+        <td><code>loader.html?src=js/example.js</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>How to inject a script</h2>
+  <ol>
+    <li>
+      <strong>Bookmarklet</strong> — drag this link to your bookmarks bar:
+      <a href="javascript:(function(){var s=document.createElement('script');s.src='https://nlovitt.github.io/js/example.js';document.body.appendChild(s);})();">
+        Run example.js
+      </a>
+    </li>
+    <li>
+      <strong>Script tag</strong> — paste in the browser console:<br />
+      <code>var s=document.createElement('script');s.src='https://nlovitt.github.io/js/example.js';document.body.appendChild(s);</code>
+    </li>
+    <li>
+      <strong>Loader page</strong> — open
+      <a href="loader.html?src=js/example.js">loader.html?src=js/example.js</a>
+      to run the script in an isolated page.
+    </li>
+  </ol>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Script Loader</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; }
+    .error { color: #c00; }
+    code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Script Loader</h1>
+  <div id="status">Loading…</div>
+
+  <script>
+    (function () {
+      function escapeHtml(str) {
+        return str.replace(/[<>&"]/g, function (c) {
+          return {'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;'}[c];
+        });
+      }
+
+      var statusEl = document.getElementById('status');
+      var params = new URLSearchParams(window.location.search);
+      var src = params.get('src');
+
+      if (!src) {
+        statusEl.innerHTML = '<span class="error">No <code>src</code> parameter provided.</span>' +
+          '<p>Usage: <code>loader.html?src=js/your-script.js</code></p>';
+        return;
+      }
+
+      // Build a base URL from the directory containing this page (strip the filename).
+      var base = window.location.origin +
+        window.location.pathname.replace(/\/[^/]*$/, '/');
+
+      var resolvedSrc;
+      try {
+        resolvedSrc = new URL(src, base).href;
+      } catch (e) {
+        statusEl.innerHTML = '<span class="error">Invalid script path.</span>';
+        return;
+      }
+
+      // Reject any URL that doesn't resolve to the same origin — this handles
+      // absolute URLs, protocol-relative URLs, data: URIs, javascript: URIs, etc.
+      if (new URL(resolvedSrc).origin !== window.location.origin) {
+        statusEl.innerHTML = '<span class="error">Only same-origin scripts are allowed.</span>';
+        return;
+      }
+
+      var script = document.createElement('script');
+      script.src = resolvedSrc;
+      script.onload = function () {
+        statusEl.textContent = 'Script loaded: ' + src;
+      };
+      script.onerror = function () {
+        statusEl.innerHTML = '<span class="error">Failed to load script: <code>' +
+          escapeHtml(src) + '</code></span>';
+      };
+      document.head.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
