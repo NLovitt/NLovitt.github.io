@@ -13,8 +13,6 @@
             this.isOpen = false;
             this.history = [];
             this.el = {};
-            this.panelHeight = 0;
-
             this.init();
         }
 
@@ -141,7 +139,7 @@
                     bottom: 0;
                     left: 0;
                     right: 0;
-                    height: 70%;
+                    height: 400px;
                     background: #1a1a2e;
                     color: #e0e0e0;
                     z-index: 2147483646;
@@ -154,18 +152,10 @@
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                     font-size: 14px;
                     box-shadow: 0 -4px 30px rgba(0,0,0,0.6);
+                    overflow: visible;
                 }
                 #dt-panel.dt-open {
                     transform: translateY(0);
-                }
-
-                /* LOCK panel height when keyboard opens */
-                #dt-panel.dt-keyboard {
-                    position: absolute;
-                    bottom: auto;
-                    top: var(--dt-panel-top, 30%);
-                    height: auto;
-                    max-height: none;
                 }
 
                 .dt-header {
@@ -422,7 +412,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token
+                    Interact with Dolphin to capture token &middot; v1.1
                 </div>
             `;
             document.body.appendChild(panel);
@@ -454,60 +444,9 @@
                 if (e.key === 'Enter') this.handleInduct();
             });
 
-            // ---- KEYBOARD-SAFE FOCUS HANDLING ----
-
-            // Snapshot panel position BEFORE keyboard opens
-            this.el.tba.addEventListener('touchstart', () => this.lockPanel(), { passive: true });
-            this.el.loc.addEventListener('touchstart', () => this.lockPanel(), { passive: true });
-
-            // Release lock when inputs lose focus
-            this.el.tba.addEventListener('blur', () => this.unlockPanel());
-            this.el.loc.addEventListener('blur', () => this.unlockPanel());
-
-            // Use visualViewport API to detect keyboard
-            if (window.visualViewport) {
-                window.visualViewport.addEventListener('resize', () => this.onViewportResize());
-            }
+    
 
             setInterval(() => this.updateTokenAge(), 15000);
-        }
-
-        // ==========================================
-        //  KEYBOARD / VIEWPORT HANDLING
-        // ==========================================
-
-        lockPanel() {
-            // Snapshot current position before keyboard changes viewport
-            if (!this.el.panel.classList.contains('dt-keyboard')) {
-                const rect = this.el.panel.getBoundingClientRect();
-                this.panelHeight = rect.height;
-                this.el.panel.style.setProperty('--dt-panel-top', rect.top + 'px');
-                this.el.panel.classList.add('dt-keyboard');
-            }
-        }
-
-        unlockPanel() {
-            // Small delay — keyboard dismissal animation takes time
-            setTimeout(() => {
-                // Only unlock if no input is focused
-                const active = document.activeElement;
-                const isOurInput = active === this.el.tba || active === this.el.loc;
-                if (!isOurInput) {
-                    this.el.panel.classList.remove('dt-keyboard');
-                }
-            }, 300);
-        }
-
-        onViewportResize() {
-            // If viewport height suddenly shrinks, keyboard opened
-            // If it restores, keyboard closed — unlock panel
-            const vv = window.visualViewport;
-            const fullHeight = window.innerHeight;
-            const keyboardOpen = vv.height < fullHeight * 0.85;
-
-            if (!keyboardOpen) {
-                this.el.panel.classList.remove('dt-keyboard');
-            }
         }
 
         // ==========================================
@@ -533,12 +472,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.1';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''}`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.1`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
@@ -632,3 +571,4 @@
     window.__dolphinTool = new DolphinTool();
 
 })();
+
