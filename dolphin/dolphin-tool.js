@@ -1,11 +1,6 @@
 (function () {
     'use strict';
 
-    // ============================================
-    //  DOLPHIN provides custom UI
-    // ============================================
-
-    // Prevent double-init
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
         return;
@@ -18,13 +13,10 @@
             this.isOpen = false;
             this.history = [];
             this.el = {};
+            this.panelHeight = 0;
 
             this.init();
         }
-
-        // ==========================================
-        //  INITIALIZATION
-        // ==========================================
 
         init() {
             this.patchXHR();
@@ -33,6 +25,7 @@
             this.buildUI();
             this.bindEvents();
             this.updateTokenStatus();
+            console.log('[DolphinTool] Initialized — waiting for token...');
         }
 
         // ==========================================
@@ -120,7 +113,6 @@
             const style = document.createElement('style');
             style.id = 'dt-styles';
             style.textContent = `
-                /* --- FAB (Floating Action Button) --- */
                 #dt-fab {
                     position: fixed;
                     bottom: 20px;
@@ -139,17 +131,17 @@
                     align-items: center;
                     justify-content: center;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-                    transition: transform 0.2s;
+                    touch-action: manipulation;
                     -webkit-tap-highlight-color: transparent;
                     user-select: none;
                 }
-                #dt-fab:active { transform: scale(0.9); }
 
-                /* --- PANEL --- */
                 #dt-panel {
                     position: fixed;
-                    bottom: 0; left: 0; right: 0;
-                    max-height: 75vh;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    height: 70%;
                     background: #1a1a2e;
                     color: #e0e0e0;
                     z-index: 2147483646;
@@ -157,15 +149,25 @@
                     border-radius: 16px 16px 0 0;
                     transform: translateY(100%);
                     transition: transform 0.3s ease;
-                    overflow-y: auto;
+                    display: flex;
+                    flex-direction: column;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                     font-size: 14px;
                     box-shadow: 0 -4px 30px rgba(0,0,0,0.6);
-                    -webkit-overflow-scrolling: touch;
                 }
-                #dt-panel.dt-open { transform: translateY(0); }
+                #dt-panel.dt-open {
+                    transform: translateY(0);
+                }
 
-                /* --- HEADER --- */
+                /* LOCK panel height when keyboard opens */
+                #dt-panel.dt-keyboard {
+                    position: absolute;
+                    bottom: auto;
+                    top: var(--dt-panel-top, 30%);
+                    height: auto;
+                    max-height: none;
+                }
+
                 .dt-header {
                     display: flex;
                     align-items: center;
@@ -173,8 +175,7 @@
                     padding: 12px 16px;
                     background: #16213e;
                     border-radius: 16px 16px 0 0;
-                    position: sticky;
-                    top: 0; z-index: 2;
+                    flex-shrink: 0;
                 }
                 .dt-title {
                     font-size: 16px;
@@ -192,22 +193,31 @@
                     border-radius: 20px;
                 }
                 .dt-dot {
-                    width: 8px; height: 8px;
+                    width: 8px;
+                    height: 8px;
                     border-radius: 50%;
                     background: #ff4444;
                     transition: background 0.3s;
                 }
                 .dt-dot.dt-live { background: #00e676; }
                 .dt-close {
-                    background: none; border: none;
-                    color: #666; font-size: 28px;
-                    cursor: pointer; padding: 0 4px;
+                    background: none;
+                    border: none;
+                    color: #666;
+                    font-size: 28px;
+                    cursor: pointer;
+                    padding: 0 4px;
                     line-height: 1;
+                    touch-action: manipulation;
                     -webkit-tap-highlight-color: transparent;
                 }
 
-                /* --- BODY --- */
-                .dt-body { padding: 16px; }
+                .dt-body {
+                    padding: 16px;
+                    overflow-y: auto;
+                    flex: 1;
+                    -webkit-overflow-scrolling: touch;
+                }
                 .dt-section { margin-bottom: 16px; }
                 .dt-section-label {
                     font-size: 10px;
@@ -218,7 +228,6 @@
                     font-weight: 700;
                 }
 
-                /* --- INPUTS --- */
                 .dt-field { margin-bottom: 10px; }
                 .dt-field label {
                     font-size: 12px;
@@ -226,6 +235,7 @@
                     margin-bottom: 4px;
                     display: block;
                 }
+
                 .dt-input {
                     width: 100%;
                     padding: 11px 12px;
@@ -236,13 +246,15 @@
                     font-size: 16px;
                     outline: none;
                     box-sizing: border-box;
-                    -webkit-appearance: none;
                     transition: border-color 0.2s;
+                    touch-action: manipulation;
+                    /* NO -webkit-appearance: none */
                 }
-                .dt-input:focus { border-color: #ff9900; }
+                .dt-input:focus {
+                    border-color: #ff9900;
+                }
                 .dt-input::placeholder { color: #445; }
 
-                /* --- BUTTON --- */
                 .dt-btn {
                     width: 100%;
                     padding: 13px;
@@ -254,6 +266,7 @@
                     font-weight: 800;
                     cursor: pointer;
                     transition: background 0.2s, opacity 0.2s;
+                    touch-action: manipulation;
                     -webkit-tap-highlight-color: transparent;
                     margin-top: 4px;
                 }
@@ -264,7 +277,6 @@
                     cursor: not-allowed;
                 }
 
-                /* --- RESULT --- */
                 .dt-result {
                     background: #0f3460;
                     border-radius: 10px;
@@ -301,7 +313,6 @@
                 .dt-row:last-child { border-bottom: none; }
                 .dt-val { color: #e0e0e0; font-weight: 600; }
 
-                /* --- LOADING --- */
                 .dt-loading {
                     text-align: center;
                     padding: 16px;
@@ -309,7 +320,8 @@
                 }
                 .dt-spinner {
                     display: inline-block;
-                    width: 24px; height: 24px;
+                    width: 24px;
+                    height: 24px;
                     border: 3px solid #222;
                     border-top-color: #ff9900;
                     border-radius: 50%;
@@ -317,7 +329,6 @@
                 }
                 @keyframes dt-spin { to { transform: rotate(360deg); } }
 
-                /* --- HISTORY --- */
                 .dt-history { max-height: 200px; overflow-y: auto; }
                 .dt-hist-item {
                     display: flex;
@@ -338,12 +349,12 @@
                 .dt-hist-loc.dt-ok { color: #69f0ae; }
                 .dt-hist-loc.dt-err { color: #ff8a80; }
 
-                /* --- FOOTER --- */
                 .dt-footer {
                     text-align: center;
                     font-size: 10px;
                     color: #444;
                     padding: 8px;
+                    flex-shrink: 0;
                 }
             `;
             document.head.appendChild(style);
@@ -354,19 +365,17 @@
         // ==========================================
 
         buildUI() {
-            // FAB
             const fab = document.createElement('button');
             fab.id = 'dt-fab';
             fab.textContent = '🐬';
             document.body.appendChild(fab);
             this.el.fab = fab;
 
-            // Panel
             const panel = document.createElement('div');
             panel.id = 'dt-panel';
             panel.innerHTML = `
                 <div class="dt-header">
-                    <span class="dt-title">🐬 DolphinTool</span>
+                    <span class="dt-title">\u{1F42C} DolphinTool</span>
                     <div class="dt-token-badge">
                         <div class="dt-dot" id="dt-dot"></div>
                         <span id="dt-token-label">No token</span>
@@ -375,12 +384,12 @@
                 </div>
 
                 <div class="dt-body">
-                    <!-- INPUT SECTION -->
                     <div class="dt-section">
                         <div class="dt-section-label">Induct Package</div>
                         <div class="dt-field">
                             <label>Tracking ID</label>
                             <input class="dt-input" id="dt-tba" type="text"
+                                   inputmode="text"
                                    placeholder="TBA or scan..."
                                    autocomplete="off" autocorrect="off"
                                    autocapitalize="off" spellcheck="false">
@@ -388,17 +397,16 @@
                         <div class="dt-field">
                             <label>Induct Location</label>
                             <input class="dt-input" id="dt-loc" type="text"
+                                   inputmode="text"
                                    value="URL1" placeholder="URL1">
                         </div>
                         <button class="dt-btn" id="dt-go" disabled>INDUCT</button>
                     </div>
 
-                    <!-- LOADING -->
                     <div class="dt-loading" id="dt-loading">
                         <div class="dt-spinner"></div>
                     </div>
 
-                    <!-- RESULT SECTION -->
                     <div class="dt-section">
                         <div class="dt-section-label">Result</div>
                         <div class="dt-result" id="dt-result">
@@ -407,21 +415,19 @@
                         </div>
                     </div>
 
-                    <!-- HISTORY SECTION -->
                     <div class="dt-section">
                         <div class="dt-section-label">History</div>
                         <div class="dt-history" id="dt-history"></div>
                     </div>
+                </div>
 
-                    <div class="dt-footer" id="dt-footer">
-                        Interact with Dolphin to capture token
-                    </div>
+                <div class="dt-footer" id="dt-footer">
+                    Interact with Dolphin to capture token
                 </div>
             `;
             document.body.appendChild(panel);
             this.el.panel = panel;
 
-            // Cache refs
             this.el.dot = document.getElementById('dt-dot');
             this.el.tokenLabel = document.getElementById('dt-token-label');
             this.el.tba = document.getElementById('dt-tba');
@@ -448,8 +454,60 @@
                 if (e.key === 'Enter') this.handleInduct();
             });
 
-            // Token age ticker
+            // ---- KEYBOARD-SAFE FOCUS HANDLING ----
+
+            // Snapshot panel position BEFORE keyboard opens
+            this.el.tba.addEventListener('touchstart', () => this.lockPanel(), { passive: true });
+            this.el.loc.addEventListener('touchstart', () => this.lockPanel(), { passive: true });
+
+            // Release lock when inputs lose focus
+            this.el.tba.addEventListener('blur', () => this.unlockPanel());
+            this.el.loc.addEventListener('blur', () => this.unlockPanel());
+
+            // Use visualViewport API to detect keyboard
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', () => this.onViewportResize());
+            }
+
             setInterval(() => this.updateTokenAge(), 15000);
+        }
+
+        // ==========================================
+        //  KEYBOARD / VIEWPORT HANDLING
+        // ==========================================
+
+        lockPanel() {
+            // Snapshot current position before keyboard changes viewport
+            if (!this.el.panel.classList.contains('dt-keyboard')) {
+                const rect = this.el.panel.getBoundingClientRect();
+                this.panelHeight = rect.height;
+                this.el.panel.style.setProperty('--dt-panel-top', rect.top + 'px');
+                this.el.panel.classList.add('dt-keyboard');
+            }
+        }
+
+        unlockPanel() {
+            // Small delay — keyboard dismissal animation takes time
+            setTimeout(() => {
+                // Only unlock if no input is focused
+                const active = document.activeElement;
+                const isOurInput = active === this.el.tba || active === this.el.loc;
+                if (!isOurInput) {
+                    this.el.panel.classList.remove('dt-keyboard');
+                }
+            }, 300);
+        }
+
+        onViewportResize() {
+            // If viewport height suddenly shrinks, keyboard opened
+            // If it restores, keyboard closed — unlock panel
+            const vv = window.visualViewport;
+            const fullHeight = window.innerHeight;
+            const keyboardOpen = vv.height < fullHeight * 0.85;
+
+            if (!keyboardOpen) {
+                this.el.panel.classList.remove('dt-keyboard');
+            }
         }
 
         // ==========================================
@@ -460,7 +518,7 @@
             this.isOpen = !this.isOpen;
             this.el.panel.classList.toggle('dt-open', this.isOpen);
             this.el.fab.style.display = this.isOpen ? 'none' : 'flex';
-            if (this.isOpen) this.el.tba.focus();
+            // NO .focus() call — let user tap the input themselves
         }
 
         updateTokenStatus() {
@@ -480,7 +538,7 @@
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' ⚠️ refresh soon' : ''}`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''}`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
@@ -492,11 +550,14 @@
             const tba = this.el.tba.value.trim();
             const loc = this.el.loc.value.trim();
 
-            if (!tba) { this.el.tba.focus(); return; }
+            if (!tba) return;
             if (!this.token) {
                 this.showResult('NO TOKEN', true, 'Use Dolphin normally first so the tool can capture the auth token.');
                 return;
             }
+
+            // Blur input FIRST to dismiss keyboard before showing results
+            document.activeElement?.blur();
 
             this.el.loading.style.display = 'block';
             this.el.result.classList.remove('dt-show');
@@ -512,7 +573,7 @@
                 this.el.loading.style.display = 'none';
                 this.el.goBtn.disabled = false;
                 this.el.tba.value = '';
-                this.el.tba.focus();
+                // NO .focus() — user taps input when ready
             }
         }
 
@@ -527,7 +588,6 @@
             if (code) rows.push(['Code', code]);
             if (sortLoc !== 'N/A') rows.push(['Sort To', sortLoc]);
 
-            // Extract cycle info from printer data
             const avery = data?.userOutput?.salPrintOutput?.AVERY_PRINTER;
             if (avery) {
                 if (avery.LINE90 && avery.LINE90.trim()) rows.push(['Cycle', avery.LINE90.trim()]);
@@ -553,10 +613,6 @@
             this.el.result.classList.add('dt-show');
         }
 
-        // ==========================================
-        //  HISTORY
-        // ==========================================
-
         addHistory(tba, location, isError) {
             this.history.unshift({ tba, location, isError, time: new Date() });
             if (this.history.length > 50) this.history.pop();
@@ -572,10 +628,6 @@
             `).join('');
         }
     }
-
-    // ==========================================
-    //  LAUNCH
-    // ==========================================
 
     window.__dolphinTool = new DolphinTool();
 
