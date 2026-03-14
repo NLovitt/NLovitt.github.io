@@ -412,7 +412,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.1
+                    Interact with Dolphin to capture token &middot; v1.2
                 </div>
             `;
             document.body.appendChild(panel);
@@ -444,6 +444,16 @@
                     e.stopImmediatePropagation();
                 }, true);
             });
+
+            this.el.fab.addEventListener('click', () => this.toggle());
+            this.el.close.addEventListener('click', () => this.toggle());
+            this.el.goBtn.addEventListener('click', () => this.handleInduct());
+            this.el.tba.addEventListener('keydown', e => {
+                if (e.key === 'Enter') this.handleInduct();
+            });
+
+            setInterval(() => this.updateTokenAge(), 15000);
+        }
         // ==========================================
         //  UI LOGIC
         // ==========================================
@@ -467,12 +477,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.1';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.2';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.1`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.2`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
