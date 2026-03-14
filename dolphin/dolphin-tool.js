@@ -437,18 +437,13 @@
         // ==========================================
 
         bindEvents() {
-            this.el.fab.addEventListener('click', () => this.toggle());
-            this.el.close.addEventListener('click', () => this.toggle());
-            this.el.goBtn.addEventListener('click', () => this.handleInduct());
-            this.el.tba.addEventListener('keydown', e => {
-                if (e.key === 'Enter') this.handleInduct();
+            // Stop Dolphin's focus-stealing when our panel is open
+            ['focus', 'focusin', 'click', 'touchend'].forEach(evt => {
+                this.el.panel.addEventListener(evt, e => {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                }, true);
             });
-
-    
-
-            setInterval(() => this.updateTokenAge(), 15000);
-        }
-
         // ==========================================
         //  UI LOGIC
         // ==========================================
