@@ -93,16 +93,24 @@
             const origFocus = HTMLElement.prototype.focus;
             this._ourInputActive = false;
 
-            // Track when user is in our inputs
+            // Set flag on TOUCH — fires BEFORE focus, so we block Dolphin in time
             ['dt-tba', 'dt-loc'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.addEventListener('focus', () => {
-                        self._ourInputActive = true;
-                        self.log('Our input focused: ' + id);
+                    el.addEventListener('touchstart', () => {
+                        if (self.isOpen) {
+                            self._ourInputActive = true;
+                            self.log('Touch on our input: ' + id);
+                        }
+                    }, { passive: true, capture: true });
+
+                    el.addEventListener('mousedown', () => {
+                        if (self.isOpen) {
+                            self._ourInputActive = true;
+                        }
                     }, true);
+
                     el.addEventListener('blur', () => {
-                        // Small delay so focus can transfer between our inputs
                         setTimeout(() => {
                             const active = document.activeElement;
                             if (active !== self.el.tba && active !== self.el.loc) {
@@ -115,11 +123,11 @@
             });
 
             HTMLElement.prototype.focus = function (options) {
-                // ONLY block when user is actively in our input
-                if (self._ourInputActive && self.el.panel && !self.el.panel.contains(this)) {
+                // Both conditions: panel open AND user touching our input
+                if (self.isOpen && self._ourInputActive && !self.el.panel.contains(this)) {
                     self._focusBlockCount = (self._focusBlockCount || 0) + 1;
                     if (self._focusBlockCount % 20 === 1) {
-                        self.log('Blocked .focus() on: ' + (this.id || this.tagName) + ' (x' + self._focusBlockCount + ')');
+                        self.log('Blocked .focus() x' + self._focusBlockCount);
                     }
                     return;
                 }
@@ -269,7 +277,7 @@
                 .dt-section-label {
                     font-size: 10px;
                     text-transform: uppercase;
-                    letter-spacing: 1.5px;
+                    letter-spacing: 1.6px;
                     color: #ff9900;
                     margin-bottom: 8px;
                     font-weight: 700;
@@ -484,7 +492,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.5
+                    Interact with Dolphin to capture token &middot; v1.6
                 </div>
             `;
             document.body.appendChild(panel);
@@ -541,6 +549,7 @@
 
         toggle() {
             this.isOpen = !this.isOpen;
+            this._ourInputActive = false;
             this.el.panel.classList.toggle('dt-open', this.isOpen);
             this.el.fab.style.display = this.isOpen ? 'none' : 'flex';
             this.log('Panel ' + (this.isOpen ? 'opened' : 'closed'));
@@ -558,12 +567,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.5';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.6';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.5`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.6`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
