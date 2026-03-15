@@ -88,47 +88,12 @@
             }
         }
 
-        patchFocus() {
+         patchFocus() {
             const self = this;
             const origFocus = HTMLElement.prototype.focus;
-            this._ourInputActive = false;
-
-            // Set flag on TOUCH — fires BEFORE focus, so we block Dolphin in time
-            ['dt-tba', 'dt-loc'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.addEventListener('touchstart', () => {
-                        if (self.isOpen) {
-                            self._ourInputActive = true;
-                            self.log('Touch on our input: ' + id);
-                        }
-                    }, { passive: true, capture: true });
-
-                    el.addEventListener('mousedown', () => {
-                        if (self.isOpen) {
-                            self._ourInputActive = true;
-                        }
-                    }, true);
-
-                    el.addEventListener('blur', () => {
-                        setTimeout(() => {
-                            const active = document.activeElement;
-                            if (active !== self.el.tba && active !== self.el.loc) {
-                                self._ourInputActive = false;
-                                self.log('Our inputs released');
-                            }
-                        }, 100);
-                    }, true);
-                }
-            });
 
             HTMLElement.prototype.focus = function (options) {
-                // Both conditions: panel open AND user touching our input
-                if (self.isOpen && self._ourInputActive && !self.el.panel.contains(this)) {
-                    self._focusBlockCount = (self._focusBlockCount || 0) + 1;
-                    if (self._focusBlockCount % 20 === 1) {
-                        self.log('Blocked .focus() x' + self._focusBlockCount);
-                    }
+                if (self.isOpen && self.el.panel && !self.el.panel.contains(this)) {
                     return;
                 }
                 return origFocus.call(this, options);
