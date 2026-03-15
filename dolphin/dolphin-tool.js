@@ -242,7 +242,7 @@
                 .dt-section-label {
                     font-size: 10px;
                     text-transform: uppercase;
-                    letter-spacing: 1.6px;
+                    letter-spacing: 1.8px;
                     color: #ff9900;
                     margin-bottom: 8px;
                     font-weight: 700;
@@ -270,6 +270,12 @@
                     touch-action: manipulation;
                     /* NO -webkit-appearance: none */
                 }
+                textarea.dt-input {
+                    resize: vertical;
+                    min-height: 80px;
+                    line-height: 1.4;
+                }
+                    
                 .dt-input:focus {
                     border-color: #ff9900;
                 }
@@ -406,13 +412,14 @@
                 <div class="dt-body">
                     <div class="dt-section">
                         <div class="dt-section-label">Induct Package</div>
-                        <div class="dt-field">
-                            <label>Tracking ID</label>
-                            <input class="dt-input" id="dt-tba" type="text"
+                          <div class="dt-field">
+                            <label>Tracking IDs (one per line)</label>
+                            <textarea class="dt-input" id="dt-tba"
                                    inputmode="text"
-                                   placeholder="TBA or scan..."
+                                   placeholder="TBA328968084975&#10;TBA328968084976&#10;TBA328968084977"
                                    autocomplete="off" autocorrect="off"
-                                   autocapitalize="off" spellcheck="false">
+                                   autocapitalize="off" spellcheck="false"
+                                   rows="4"></textarea>
                         </div>
                         <div class="dt-field">
                             <label>Induct Location</label>
@@ -457,7 +464,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.6
+                    Interact with Dolphin to capture token &middot; v1.8
                 </div>
             `;
             document.body.appendChild(panel);
@@ -503,7 +510,7 @@
                 this.handleInduct();
             });
             this.el.tba.addEventListener('keydown', e => {
-                if (e.key === 'Enter') this.handleInduct();
+                if (e.key === 'Enter' && e.ctrlKey) this.handleInduct();
             });
 
             setInterval(() => this.updateTokenAge(), 15000);
@@ -532,12 +539,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.6';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.8';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.6`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.8`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
@@ -545,35 +552,56 @@
         //  INDUCT HANDLER
         // ==========================================
 
-        async handleInduct() {
-            const tba = this.el.tba.value.trim();
+         async handleInduct() {
+            const raw = this.el.tba.value.trim();
             const loc = this.el.loc.value.trim();
 
-            if (!tba) return;
+            if (!raw) return;
             if (!this.token) {
                 this.showResult('NO TOKEN', true, 'Use Dolphin normally first so the tool can capture the auth token.');
                 return;
             }
 
-            // Blur input FIRST to dismiss keyboard before showing results
+            // Parse list — split by newlines, commas, or spaces
+            const tbas = raw.split(/[\n,]+/)
+                .map(t => t.trim())
+                .filter(t => t.length > 0);
+
+            if (tbas.length === 0) return;
+
             document.activeElement?.blur();
-
-            this.el.loading.style.display = 'block';
-            this.el.result.classList.remove('dt-show');
             this.el.goBtn.disabled = true;
+            this.el.goBtn.textContent = `INDUCTING 0/${tbas.length}`;
+            this.el.result.classList.remove('dt-show');
 
-            try {
-                const data = await this.inductPackage(tba, loc);
-                this.processResult(tba, data);
-            } catch (err) {
-                this.showResult('ERROR', true, err.message);
-                this.addHistory(tba, 'ERR', true);
-            } finally {
-                this.el.loading.style.display = 'none';
-                this.el.goBtn.disabled = false;
-                this.el.tba.value = '';
-                // NO .focus() — user taps input when ready
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < tbas.length; i++) {
+                const tba = tbas[i];
+                this.el.goBtn.textContent = `INDUCTING ${i + 1}/${tbas.length}`;
+                this.log(`Inducting ${i + 1}/${tbas.length}: ${tba}`);
+
+                try {
+                    const data = await this.inductPackage(tba, loc);
+                    this.processResult(tba, data);
+                    successCount++;
+                } catch (err) {
+                    this.showResult('ERROR', true, `${tba}: ${err.message}`);
+                    this.addHistory(tba, 'ERR', true);
+                    errorCount++;
+                }
+
+                // Small delay between requests to avoid rate limiting
+                if (i < tbas.length - 1) {
+                    await new Promise(r => setTimeout(r, 300));
+                }
             }
+
+            this.el.goBtn.disabled = false;
+            this.el.goBtn.textContent = 'INDUCT';
+            this.log(`Batch done: ${successCount} ok, ${errorCount} errors`);
+            // NOT clearing the textarea
         }
 
         processResult(tba, data) {
