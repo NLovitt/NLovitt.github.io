@@ -87,7 +87,7 @@
                 }
             }
         }
-        
+
         patchFocus() {
             const self = this;
             const origFocus = HTMLElement.prototype.focus;
@@ -484,7 +484,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.4
+                    Interact with Dolphin to capture token &middot; v1.5
                 </div>
             `;
             document.body.appendChild(panel);
@@ -558,12 +558,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.4';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.5';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.4`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.5`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
