@@ -19,6 +19,7 @@
         init() {
             this.patchXHR();
             this.patchFetch();
+            this.patchFocus();
             this.injectStyles();
             this.buildUI();
             this.bindEvents();
@@ -85,6 +86,24 @@
                     this.el.debugLog.textContent = lines.slice(0, 30).join('\n');
                 }
             }
+        }
+                patchFocus() {
+            const self = this;
+            const origFocus = HTMLElement.prototype.focus;
+
+            HTMLElement.prototype.focus = function (options) {
+                // If our panel is open and this element is NOT inside our panel, block it
+                if (self.isOpen && self.el.panel && !self.el.panel.contains(this)) {
+                    self._focusBlockCount = (self._focusBlockCount || 0) + 1;
+                    // Log every 20th block to avoid spam
+                    if (self._focusBlockCount % 20 === 1) {
+                        self.log('Blocked .focus() on: ' + (this.id || this.tagName || 'unknown') + ' (x' + self._focusBlockCount + ')');
+                    }
+                    return;
+                }
+                return origFocus.call(this, options);
+            };
+            this.log('Patched HTMLElement.focus()');
         }
 
         captureToken(token, source) {
@@ -443,7 +462,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.3
+                    Interact with Dolphin to capture token &middot; v1.4
                 </div>
             `;
             document.body.appendChild(panel);
@@ -468,16 +487,8 @@
         //  EVENT BINDING
         // ==========================================
 
-                bindEvents() {
-            // Stop Dolphin's focus-stealing — BUBBLE phase so our children get events first
-            ['focus', 'focusin'].forEach(evt => {
-                this.el.panel.addEventListener(evt, e => {
-                    e.stopPropagation();
-                    this.log('Blocked ' + evt + ' from bubbling to Dolphin');
-                }, false);
-            });
-
-            // Prevent Dolphin's click/touch handlers but NOT in capture phase
+         bindEvents() {
+            // Stop clicks/touches from reaching Dolphin
             ['click', 'touchstart', 'touchend'].forEach(evt => {
                 this.el.panel.addEventListener(evt, e => {
                     e.stopPropagation();
@@ -525,12 +536,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.3';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.4';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.3`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.4`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
