@@ -87,17 +87,39 @@
                 }
             }
         }
-                patchFocus() {
+        
+        patchFocus() {
             const self = this;
             const origFocus = HTMLElement.prototype.focus;
+            this._ourInputActive = false;
+
+            // Track when user is in our inputs
+            ['dt-tba', 'dt-loc'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('focus', () => {
+                        self._ourInputActive = true;
+                        self.log('Our input focused: ' + id);
+                    }, true);
+                    el.addEventListener('blur', () => {
+                        // Small delay so focus can transfer between our inputs
+                        setTimeout(() => {
+                            const active = document.activeElement;
+                            if (active !== self.el.tba && active !== self.el.loc) {
+                                self._ourInputActive = false;
+                                self.log('Our inputs released');
+                            }
+                        }, 100);
+                    }, true);
+                }
+            });
 
             HTMLElement.prototype.focus = function (options) {
-                // If our panel is open and this element is NOT inside our panel, block it
-                if (self.isOpen && self.el.panel && !self.el.panel.contains(this)) {
+                // ONLY block when user is actively in our input
+                if (self._ourInputActive && self.el.panel && !self.el.panel.contains(this)) {
                     self._focusBlockCount = (self._focusBlockCount || 0) + 1;
-                    // Log every 20th block to avoid spam
                     if (self._focusBlockCount % 20 === 1) {
-                        self.log('Blocked .focus() on: ' + (this.id || this.tagName || 'unknown') + ' (x' + self._focusBlockCount + ')');
+                        self.log('Blocked .focus() on: ' + (this.id || this.tagName) + ' (x' + self._focusBlockCount + ')');
                     }
                     return;
                 }
