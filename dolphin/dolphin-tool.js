@@ -23,7 +23,9 @@
             this.buildUI();
             this.bindEvents();
             this.updateTokenStatus();
-            console.log('[DolphinTool] Initialized — waiting for token...');
+            this.log('Initialized — waiting for token...');
+            this.log('URL: ' + window.location.href);
+            this.log('DOM inputs found: ' + document.querySelectorAll('input').length);
         }
 
         // ==========================================
@@ -71,11 +73,25 @@
             };
         }
 
+                log(msg) {
+            const ts = new Date().toLocaleTimeString();
+            const entry = `[${ts}] ${msg}`;
+            console.log('[DT] ' + entry);
+            if (this.el.debugLog) {
+                this.el.debugLog.textContent = entry + '\n' + this.el.debugLog.textContent;
+                // Keep only last 30 lines
+                const lines = this.el.debugLog.textContent.split('\n');
+                if (lines.length > 30) {
+                    this.el.debugLog.textContent = lines.slice(0, 30).join('\n');
+                }
+            }
+        }
+
         captureToken(token, source) {
             this.token = token;
             this.tokenTimestamp = Date.now();
             this.updateTokenStatus();
-            console.log(`[DolphinTool] Token captured via ${source}`);
+            this.log(`Token captured via ${source}: ${token.substring(0, 20)}...`);
         }
 
         // ==========================================
@@ -409,10 +425,25 @@
                         <div class="dt-section-label">History</div>
                         <div class="dt-history" id="dt-history"></div>
                     </div>
+                    <div class="dt-section">
+                        <div class="dt-section-label">Debug Log</div>
+                        <div id="dt-debug-log" style="
+                            background: #000;
+                            color: #0f0;
+                            font-family: 'Courier New', monospace;
+                            font-size: 10px;
+                            padding: 8px;
+                            border-radius: 6px;
+                            max-height: 150px;
+                            overflow-y: auto;
+                            white-space: pre-wrap;
+                            word-break: break-all;
+                        "></div>
+                    </div>
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.2
+                    Interact with Dolphin to capture token &middot; v1.3
                 </div>
             `;
             document.body.appendChild(panel);
@@ -430,24 +461,41 @@
             this.el.history = document.getElementById('dt-history');
             this.el.footer = document.getElementById('dt-footer');
             this.el.close = document.getElementById('dt-close');
+            this.el.debugLog = document.getElementById('dt-debug-log');
         }
 
         // ==========================================
         //  EVENT BINDING
         // ==========================================
 
-        bindEvents() {
-            // Stop Dolphin's focus-stealing when our panel is open
-            ['focus', 'focusin', 'click', 'touchend'].forEach(evt => {
+                bindEvents() {
+            // Stop Dolphin's focus-stealing — BUBBLE phase so our children get events first
+            ['focus', 'focusin'].forEach(evt => {
                 this.el.panel.addEventListener(evt, e => {
                     e.stopPropagation();
-                    e.stopImmediatePropagation();
-                }, true);
+                    this.log('Blocked ' + evt + ' from bubbling to Dolphin');
+                }, false);
             });
 
-            this.el.fab.addEventListener('click', () => this.toggle());
-            this.el.close.addEventListener('click', () => this.toggle());
-            this.el.goBtn.addEventListener('click', () => this.handleInduct());
+            // Prevent Dolphin's click/touch handlers but NOT in capture phase
+            ['click', 'touchstart', 'touchend'].forEach(evt => {
+                this.el.panel.addEventListener(evt, e => {
+                    e.stopPropagation();
+                }, false);
+            });
+
+            this.el.fab.addEventListener('click', e => {
+                e.stopPropagation();
+                this.toggle();
+            });
+            this.el.close.addEventListener('click', e => {
+                e.stopPropagation();
+                this.toggle();
+            });
+            this.el.goBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                this.handleInduct();
+            });
             this.el.tba.addEventListener('keydown', e => {
                 if (e.key === 'Enter') this.handleInduct();
             });
@@ -462,7 +510,7 @@
             this.isOpen = !this.isOpen;
             this.el.panel.classList.toggle('dt-open', this.isOpen);
             this.el.fab.style.display = this.isOpen ? 'none' : 'flex';
-            // NO .focus() call — let user tap the input themselves
+            this.log('Panel ' + (this.isOpen ? 'opened' : 'closed'));
         }
 
         updateTokenStatus() {
@@ -477,12 +525,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.2';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.3';
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.2`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.3`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
