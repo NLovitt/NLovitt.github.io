@@ -90,8 +90,8 @@
 </head>
 <body>
   <div class="logo">🐬</div>
-  <h1>DolphinTool</h1>
-  <div class="subtitle">Package Induct Overlay</div>
+  <h1>Script Loader</h1>
+  <div class="subtitle">No script specified</div>
 
   <div id="status"></div>
 
@@ -127,84 +127,6 @@
 
   <div class="version" id="version-label"></div>
 
-  <script>
-    (function () {
-      // ---- CONFIG ----
-      var TOOL_BASE = 'https://nlovitt.github.io/dolphin/';
-      var TOOL_FILE = 'dolphin-tool.js';
-      var TOOL_URL = TOOL_BASE + TOOL_FILE;
-
-      // Cache-bust: changes daily so users get updates within 24h
-      var today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      var versionedURL = TOOL_URL + '?d=' + today;
-
-      // ---- BOOKMARKLET ----
-      var bookmarklet = "javascript:(function(){var s=document.createElement('script');s.src='" +
-        versionedURL + "';document.head.appendChild(s)})();";
-
-      // Display bookmarklet text
-      var bmEl = document.getElementById('bookmarklet-text');
-      bmEl.textContent = bookmarklet;
-
-      // Copy button
-      document.getElementById('copy-btn').addEventListener('click', function () {
-        navigator.clipboard.writeText(bookmarklet).then(function () {
-          document.getElementById('copy-btn').textContent = 'COPIED!';
-          setTimeout(function () {
-            document.getElementById('copy-btn').textContent = 'COPY BOOKMARKLET';
-          }, 2000);
-        });
-      });
-
-      // ---- QR CODE ----
-      new QRCode(document.getElementById('qr-inject'), {
-        text: bookmarklet,
-        width: 200,
-        height: 200,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.L
-      });
-
-      // ---- VERSION ----
-      document.getElementById('version-label').textContent = 'Cache date: ' + today;
-
-      // ---- OPTIONAL SCRIPT LOADER ----
-      var params = new URLSearchParams(window.location.search);
-      var src = params.get('src');
-
-      if (src) {
-        var loaderCard = document.getElementById('loader-card');
-        var loaderStatus = document.getElementById('loader-status');
-        loaderCard.style.display = 'block';
-
-        var base = window.location.origin +
-          window.location.pathname.replace(/\/[^/]*$/, '/');
-        var resolvedSrc;
-
-        try {
-          resolvedSrc = new URL(src, base).href;
-        } catch (e) {
-          loaderStatus.innerHTML = '<span class="error">Invalid script path.</span>';
-          return;
-        }
-
-        if (new URL(resolvedSrc).origin !== window.location.origin) {
-          loaderStatus.innerHTML = '<span class="error">Only same-origin scripts are allowed.</span>';
-          return;
-        }
-
-        var script = document.createElement('script');
-        script.src = resolvedSrc;
-        script.onload = function () {
-          loaderStatus.textContent = 'Loaded: ' + src;
-        };
-        script.onerror = function () {
-          loaderStatus.innerHTML = '<span class="error">Failed to load: ' + src + '</span>';
-        };
-        document.head.appendChild(script);
-      }
-    })();
-  </script>
+<script>
 </body>
 </html>
