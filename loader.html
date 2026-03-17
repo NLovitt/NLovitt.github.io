@@ -202,7 +202,24 @@
         }
     }).catch(function() {
         document.getElementById('status').innerHTML = 'Could not verify script (CORS or network): <code>' + fullSrc + '</code>';
-    });
+  // Show loader card
+    var loaderCard = document.getElementById('loader-card');
+    var loaderStatus = document.getElementById('loader-status');
+    loaderCard.style.display = 'block';
+
+    // Actually load the script
+    var scriptEl = document.createElement('script');
+    scriptEl.src = fullSrc + '?v=' + Date.now();
+    scriptEl.onload = function() {
+        loaderStatus.innerHTML = 'Script loaded: <code>' + scriptSrc + '</code>';
+        document.getElementById('status').innerHTML = 'Script verified and loaded: <code>' + scriptSrc + '</code>';
+    };
+    scriptEl.onerror = function() {
+        loaderStatus.innerHTML = '<span class="error">Failed to load: <code>' + fullSrc + '</code></span>';
+        document.getElementById('status').innerHTML = '<span class="error">Script failed to load</span>';
+        document.getElementById('status').classList.add('error');
+    };
+    document.head.appendChild(scriptEl);
 })();
 </script>
 </body>
