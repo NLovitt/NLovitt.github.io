@@ -200,9 +200,11 @@
             document.getElementById('status').innerHTML = 'Script returned ' + res.status + ': <code>' + fullSrc + '</code>';
             document.getElementById('status').classList.add('error');
         }
-    }).catch(function() {
+       }).catch(function() {
         document.getElementById('status').innerHTML = 'Could not verify script (CORS or network): <code>' + fullSrc + '</code>';
-  // Show loader card
+    });
+
+    // Show loader card
     var loaderCard = document.getElementById('loader-card');
     var loaderStatus = document.getElementById('loader-status');
     loaderCard.style.display = 'block';
