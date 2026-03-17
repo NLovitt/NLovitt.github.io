@@ -3,64 +3,207 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Script Loader</title>
+  <title>🐬 DolphinTool</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; }
-    .error { color: #c00; }
-    code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+    .logo { font-size: 48px; margin-bottom: 8px; }
+    h1 { color: #ff9900; font-size: 24px; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 13px; margin-bottom: 32px; }
+    .card {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      color: #ff9900;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .qr-wrap {
+      display: flex;
+      justify-content: center;
+      background: white;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .instructions {
+      font-size: 13px;
+      color: #999;
+      line-height: 1.6;
+    }
+    .instructions li { margin-bottom: 6px; }
+    .instructions code {
+      background: #0f3460;
+      color: #64b5f6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .bookmarklet-box {
+      background: #0f3460;
+      border: 1px solid #1a4a7a;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      color: #64b5f6;
+      word-break: break-all;
+      margin-top: 12px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .copy-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      background: #ff9900;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .copy-btn:active { background: #e68a00; }
+    .version { color: #333; font-size: 11px; margin-top: 24px; }
+    .error { color: #ff4444; }
+    #status { margin-bottom: 16px; font-size: 13px; color: #888; }
   </style>
 </head>
 <body>
-  <h1>Script Loader</h1>
-  <div id="status">Loading…</div>
+  <div class="logo">🐬</div>
+  <h1>DolphinTool</h1>
+  <div class="subtitle">Package Induct Overlay</div>
+
+  <div id="status"></div>
+
+  <!-- QR Card -->
+  <div class="card">
+    <div class="card-title">Inject via QR Code</div>
+    <div class="qr-wrap">
+      <div id="qr-inject"></div>
+    </div>
+    <ol class="instructions">
+      <li>Scan QR code with your device camera</li>
+      <li>Copy the URL from the scan result</li>
+      <li>Create a new bookmark, paste as the URL</li>
+      <li>Open Dolphin, tap the bookmark to inject</li>
+    </ol>
+  </div>
+
+  <!-- Manual Card -->
+  <div class="card">
+    <div class="card-title">Manual Bookmarklet</div>
+    <div class="instructions">
+      Copy the code below and save it as a bookmark URL:
+    </div>
+    <div class="bookmarklet-box" id="bookmarklet-text"></div>
+    <button class="copy-btn" id="copy-btn">📋 COPY BOOKMARKLET</button>
+  </div>
+
+  <!-- Script Loader (optional src param) -->
+  <div class="card" id="loader-card" style="display:none;">
+    <div class="card-title">Script Loader</div>
+    <div id="loader-status"></div>
+  </div>
+
+  <div class="version" id="version-label"></div>
 
   <script>
     (function () {
-      function escapeHtml(str) {
-        return str.replace(/[<>&"]/g, function (c) {
-          return {'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;'}[c];
-        });
-      }
+      // ---- CONFIG ----
+      var TOOL_BASE = 'https://nlovitt.github.io/dolphin/';
+      var TOOL_FILE = 'dolphin-tool.js';
+      var TOOL_URL = TOOL_BASE + TOOL_FILE;
 
-      var statusEl = document.getElementById('status');
+      // Cache-bust: changes daily so users get updates within 24h
+      var today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      var versionedURL = TOOL_URL + '?d=' + today;
+
+      // ---- BOOKMARKLET ----
+      var bookmarklet = "javascript:(function(){var s=document.createElement('script');s.src='" +
+        versionedURL + "';document.head.appendChild(s)})();";
+
+      // Display bookmarklet text
+      var bmEl = document.getElementById('bookmarklet-text');
+      bmEl.textContent = bookmarklet;
+
+      // Copy button
+      document.getElementById('copy-btn').addEventListener('click', function () {
+        navigator.clipboard.writeText(bookmarklet).then(function () {
+          document.getElementById('copy-btn').textContent = 'COPIED!';
+          setTimeout(function () {
+            document.getElementById('copy-btn').textContent = 'COPY BOOKMARKLET';
+          }, 2000);
+        });
+      });
+
+      // ---- QR CODE ----
+      new QRCode(document.getElementById('qr-inject'), {
+        text: bookmarklet,
+        width: 200,
+        height: 200,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.L
+      });
+
+      // ---- VERSION ----
+      document.getElementById('version-label').textContent = 'Cache date: ' + today;
+
+      // ---- OPTIONAL SCRIPT LOADER ----
       var params = new URLSearchParams(window.location.search);
       var src = params.get('src');
 
-      if (!src) {
-        statusEl.innerHTML = '<span class="error">No <code>src</code> parameter provided.</span>' +
-          '<p>Usage: <code>loader.html?src=js/your-script.js</code></p>';
-        return;
+      if (src) {
+        var loaderCard = document.getElementById('loader-card');
+        var loaderStatus = document.getElementById('loader-status');
+        loaderCard.style.display = 'block';
+
+        var base = window.location.origin +
+          window.location.pathname.replace(/\/[^/]*$/, '/');
+        var resolvedSrc;
+
+        try {
+          resolvedSrc = new URL(src, base).href;
+        } catch (e) {
+          loaderStatus.innerHTML = '<span class="error">Invalid script path.</span>';
+          return;
+        }
+
+        if (new URL(resolvedSrc).origin !== window.location.origin) {
+          loaderStatus.innerHTML = '<span class="error">Only same-origin scripts are allowed.</span>';
+          return;
+        }
+
+        var script = document.createElement('script');
+        script.src = resolvedSrc;
+        script.onload = function () {
+          loaderStatus.textContent = 'Loaded: ' + src;
+        };
+        script.onerror = function () {
+          loaderStatus.innerHTML = '<span class="error">Failed to load: ' + src + '</span>';
+        };
+        document.head.appendChild(script);
       }
-
-      // Build a base URL from the directory containing this page (strip the filename).
-      var base = window.location.origin +
-        window.location.pathname.replace(/\/[^/]*$/, '/');
-
-      var resolvedSrc;
-      try {
-        resolvedSrc = new URL(src, base).href;
-      } catch (e) {
-        statusEl.innerHTML = '<span class="error">Invalid script path.</span>';
-        return;
-      }
-
-      // Reject any URL that doesn't resolve to the same origin — this handles
-      // absolute URLs, protocol-relative URLs, data: URIs, javascript: URIs, etc.
-      if (new URL(resolvedSrc).origin !== window.location.origin) {
-        statusEl.innerHTML = '<span class="error">Only same-origin scripts are allowed.</span>';
-        return;
-      }
-
-      var script = document.createElement('script');
-      script.src = resolvedSrc;
-      script.onload = function () {
-        statusEl.textContent = 'Script loaded: ' + src;
-      };
-      script.onerror = function () {
-        statusEl.innerHTML = '<span class="error">Failed to load script: <code>' +
-          escapeHtml(src) + '</code></span>';
-      };
-      document.head.appendChild(script);
     })();
   </script>
 </body>
