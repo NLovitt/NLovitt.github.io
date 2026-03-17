@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    const DT_VERSION = '1.9';
+
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
         return;
@@ -73,8 +75,7 @@
                 return origFetch.apply(this, arguments);
             };
         }
-
-                log(msg) {
+        log(msg) {
             const ts = new Date().toLocaleTimeString();
             const entry = `[${ts}] ${msg}`;
             console.log('[DT] ' + entry);
@@ -86,6 +87,83 @@
                     this.el.debugLog.textContent = lines.slice(0, 30).join('\n');
                 }
             }
+        }
+        loadQRLib() {
+            return new Promise((resolve, reject) => {
+                if (window.QRCode) return resolve();
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
+                s.onload = () => {
+                    this.log('QR library loaded');
+                    resolve();
+                };
+                s.onerror = () => reject(new Error('Failed to load QR library'));
+                document.head.appendChild(s);
+            });
+        }
+
+                async showTokenQR() {
+            if (!this.token) {
+                this.log('No token to export');
+                return;
+            }
+            try {
+                await this.loadQRLib();
+            } catch (e) {
+                this.log('QR lib failed: ' + e.message);
+                return;
+            }
+
+            // Remove old overlay if exists
+            const old = document.getElementById('dt-qr-overlay');
+            if (old) old.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'dt-qr-overlay';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.9); z-index: 2147483647;
+                display: flex; flex-direction: column; align-items: center;
+                justify-content: center; padding: 20px;
+            `;
+            overlay.innerHTML = `
+                <div style="color: #ff9900; font-size: 16px; font-weight: 700; margin-bottom: 12px;">
+                    Scan to Import Token
+                </div>
+                <div id="dt-qr-container" style="background: white; padding: 16px; border-radius: 12px;"></div>
+                <div style="color: #666; font-size: 11px; margin-top: 12px; text-align: center;">
+                    Token: ${this.token.substring(0, 20)}...<br>
+                    Tap anywhere to close
+                </div>
+            `;
+            overlay.addEventListener('click', () => overlay.remove());
+            document.body.appendChild(overlay);
+
+            new QRCode(document.getElementById('dt-qr-container'), {
+                text: JSON.stringify({ t: this.token, ts: this.tokenTimestamp }),
+                width: 220,
+                height: 220,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.L
+            });
+            this.log('Token QR displayed');
+        }
+
+        importToken(jsonStr) {
+            try {
+                const data = JSON.parse(jsonStr);
+                if (data.t) {
+                    this.token = data.t;
+                    this.tokenTimestamp = data.ts || Date.now();
+                    this.updateTokenStatus();
+                    this.log('Token imported successfully');
+                    return true;
+                }
+            } catch (e) {
+                this.log('Import failed: ' + e.message);
+            }
+            return false;
         }
 
          patchFocus() {
@@ -428,6 +506,10 @@
                                    value="URL1" placeholder="URL1">
                         </div>
                         <button class="dt-btn" id="dt-go" disabled>INDUCT</button>
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <button class="dt-btn" id="dt-export-qr" style="flex:1; background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px;">EXPORT TOKEN</button>
+                            <button class="dt-btn" id="dt-import-qr" style="flex:1; background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px;">IMPORT TOKEN</button>
+                        </div>
                     </div>
 
                     <div class="dt-loading" id="dt-loading">
@@ -464,7 +546,7 @@
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
-                    Interact with Dolphin to capture token &middot; v1.8
+                    Interact with Dolphin to capture token
                 </div>
             `;
             document.body.appendChild(panel);
@@ -482,6 +564,8 @@
             this.el.history = document.getElementById('dt-history');
             this.el.footer = document.getElementById('dt-footer');
             this.el.close = document.getElementById('dt-close');
+            this.el.exportQR = document.getElementById('dt-export-qr');
+            this.el.importQR = document.getElementById('dt-import-qr');
             this.el.debugLog = document.getElementById('dt-debug-log');
         }
 
@@ -512,7 +596,16 @@
             this.el.tba.addEventListener('keydown', e => {
                 if (e.key === 'Enter' && e.ctrlKey) this.handleInduct();
             });
-
+            this.el.exportQR.addEventListener('click', e => {
+                e.stopPropagation();
+                this.showTokenQR();
+            });
+            this.el.importQR.addEventListener('click', e => {
+                e.stopPropagation();
+                const input = prompt('Paste token JSON (from QR scan):');
+                if (input) this.importToken(input);
+            });
+            
             setInterval(() => this.updateTokenAge(), 15000);
         }
         // ==========================================
@@ -539,12 +632,12 @@
         updateTokenAge() {
             if (!this.el.footer) return;
             if (!this.tokenTimestamp) {
-                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v1.8';
+                this.el.footer.textContent = 'Interact with Dolphin to capture token \u00B7 v' + DT_VERSION;
                 return;
             }
             const mins = Math.floor((Date.now() - this.tokenTimestamp) / 60000);
             const warn = mins >= 45;
-            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v1.8`;
+            this.el.footer.textContent = `Token age: ${mins}m${warn ? ' \u26A0\uFE0F refresh soon' : ''} \u00B7 v${DT_VERSION}`;
             this.el.footer.style.color = warn ? '#ff4444' : '#444';
         }
 
