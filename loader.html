@@ -160,9 +160,9 @@
     // Copy button
     document.getElementById('copy-btn').addEventListener('click', function() {
         navigator.clipboard.writeText(bookmarklet).then(function() {
-            document.getElementById('copy-btn').textContent = '✅ COPIED!';
+            document.getElementById('copy-btn').textContent = 'COPIED!';
             setTimeout(function() {
-                document.getElementById('copy-btn').textContent = '📋 COPY BOOKMARKLET';
+                document.getElementById('copy-btn').textContent = 'COPY BOOKMARKLET';
             }, 2000);
         }).catch(function() {
             // Fallback for older browsers
@@ -172,9 +172,9 @@
             ta.select();
             document.execCommand('copy');
             ta.remove();
-            document.getElementById('copy-btn').textContent = '✅ COPIED!';
+            document.getElementById('copy-btn').textContent = 'COPIED!';
             setTimeout(function() {
-                document.getElementById('copy-btn').textContent = '📋 COPY BOOKMARKLET';
+                document.getElementById('copy-btn').textContent = 'COPY BOOKMARKLET';
             }, 2000);
         });
     });
@@ -190,18 +190,18 @@
     });
 
     // Status
-    document.getElementById('status').innerHTML = '✅ Script ready: <code>' + scriptSrc + '</code>';
+    document.getElementById('status').innerHTML = 'Script ready: <code>' + scriptSrc + '</code>';
 
     // Verify script is reachable
     fetch(fullSrc, { method: 'HEAD' }).then(function(res) {
         if (res.ok) {
-            document.getElementById('status').innerHTML = '✅ Script verified: <code>' + scriptSrc + '</code>';
+            document.getElementById('status').innerHTML = 'Script verified: <code>' + scriptSrc + '</code>';
         } else {
-            document.getElementById('status').innerHTML = '⚠️ Script returned ' + res.status + ': <code>' + fullSrc + '</code>';
+            document.getElementById('status').innerHTML = 'Script returned ' + res.status + ': <code>' + fullSrc + '</code>';
             document.getElementById('status').classList.add('error');
         }
     }).catch(function() {
-        document.getElementById('status').innerHTML = '⚠️ Could not verify script (CORS or network): <code>' + fullSrc + '</code>';
+        document.getElementById('status').innerHTML = 'Could not verify script (CORS or network): <code>' + fullSrc + '</code>';
     });
 })();
 </script>
