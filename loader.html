@@ -268,51 +268,6 @@
         colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.L
     });
-
-        // Dolphin quick links
-    var dolphinLinks = [
-        { label: 'STOW', url: 'https://na.sew.dolphinprod.last-mile.amazon.dev/#/' },
-        { label: 'INDUCT', url: 'https://na.iew.dolphinprod.last-mile.amazon.dev/#/' },
-        { label: 'PS', url: 'https://na.problemsolve-prod.dolphinprod.last-mile.amazon.dev/' },
-        { label: 'PICK', url: 'https://na-prod-pick.dolphinprod.last-mile.amazon.dev/#/home' },
-        { label: 'RTS', url: 'https://na.rts.dolphinprod.last-mile.amazon.dev/#/' }
-    ];
-
-    var linkGrid = document.getElementById('link-grid');
-    dolphinLinks.forEach(function(link) {
-        var btn = document.createElement('button');
-        btn.className = 'link-btn';
-        btn.innerHTML = '<span class="link-label">' + link.label + '</span>' + link.url.replace(/https?:\/\//, '').split('/')[0].split('.')[0].toUpperCase();
-        btn.addEventListener('click', function() {
-            showLinkQR(link.label, link.url);
-        });
-        linkGrid.appendChild(btn);
-    });
-
-    function showLinkQR(label, url) {
-        var old = document.getElementById('dt-link-overlay');
-        if (old) old.remove();
-
-        var overlay = document.createElement('div');
-        overlay.id = 'dt-link-overlay';
-        overlay.className = 'qr-overlay';
-        overlay.innerHTML =
-            '<div class="qr-overlay-title">' + label + '</div>' +
-            '<div class="qr-overlay-url">' + url + '</div>' +
-            '<div class="qr-overlay-box" id="dt-link-qr"></div>' +
-            '<div class="qr-overlay-hint">Tap anywhere to close</div>';
-        overlay.addEventListener('click', function() { overlay.remove(); });
-        document.body.appendChild(overlay);
-
-        new QRCode(document.getElementById('dt-link-qr'), {
-            text: url,
-            width: 220,
-            height: 220,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.L
-        });
-    }
     // Status
     document.getElementById('status').innerHTML = 'Script ready: <code>' + scriptSrc + '</code>';
 
