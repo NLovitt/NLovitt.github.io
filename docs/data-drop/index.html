@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Drop</title>
+<style>
+  /* same styles as above, or your own */
+  * { box-sizing: border-box; }
+  body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 10px; }
+  textarea { width: 100%; height: 30vh; background: #16213e; color: #eee; 
+    border: 1px solid #333; padding: 10px; border-radius: 8px; }
+  button { padding: 12px 20px; background: #0f0; color: #000; border: none; 
+    font-weight: bold; cursor: pointer; border-radius: 8px; margin: 5px; }
+  #messages { height: 40vh; overflow-y: auto; border: 1px solid #333;
+    padding: 10px; background: #16213e; border-radius: 8px; margin: 10px 0; }
+  .msg { background: #0f3460; padding: 8px; margin: 4px 0; border-radius: 6px; 
+    white-space: pre-wrap; word-wrap: break-word; }
+  #setup { background: #16213e; padding: 15px; border-radius: 8px; margin: 10px 0; }
+  #setup input { width: 100%; padding: 8px; margin: 4px 0; background: #0f3460; 
+    color: #eee; border: 1px solid #333; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h2>📡 Data Drop (GitHub Gist)</h2>
+
+<div id="setup">
+  <p>First time? Enter your credentials (stored in localStorage only):</p>
+  <input id="token" type="password" placeholder="GitHub PAT token">
+  <input id="gistId" placeholder="Gist ID">
+  <button onclick="saveConfig()">Save Config</button>
+</div>
+
+<div id="app" style="display:none">
+  <div id="messages"></div>
+  <textarea id="input" placeholder="Paste data here..."></textarea>
+  <div>
+    <button onclick="send()">SEND</button>
+    <button onclick="loadMessages()">REFRESH</button>
+    <button onclick="exportAll()">EXPORT</button>
+  </div>
+</div>
+
+<script>
+const FILENAME = 'data-drop.json';
+let config = JSON.parse(localStorage.getItem('datadrop-config') || 'null');
+
+function saveConfig() {
+  config = {
+    token: document.getElementById('token').value,
+    gistId: document.getElementById('gistId').value
+  };
+  localStorage.setItem('datadrop-config', JSON.stringify(config));
+  init();
+}
+
+function init() {
+  if (config && config.token && config.gistId) {
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadMessages();
+  }
+}
+
+async function gistRequest(method, body) {
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `token ${config.token}`,
+      'Content-Type': 'application/json'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`https://api.github.com/gists/${config.gistId}`, opts);
+}
+
+async function getMessages() {
+  const res = await gistRequest('GET');
+  const data = await res.json();
+  return JSON.parse(data.files[FILENAME].content);
+}
+
+async function loadMessages() {
+  const messages = await getMessages();
+  const div = document.getElementById('messages');
+  div.innerHTML = messages.map(m => 
+    `<div class="msg"><small style="color:#0f0">${m.time}</small><br>${
+      m.content.replace(/</g,'&lt;')}</div>`
+  ).join('');
+  div.scrollTop = div.scrollHeight;
+}
+
+async function send() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  
+  const messages = await getMessages();
+  messages.push({
+    time: new Date().toISOString(),
+    content: text
+  });
+  
+  await gistRequest('PATCH', {
+    files: { [FILENAME]: { content: JSON.stringify(messages, null, 2) }}
+  });
+  
+  input.value = '';
+  loadMessages();
+}
+
+async function exportAll() {
+  const messages = await getMessages();
+  const blob = new Blob([JSON.stringify(messages, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); 
+  a.href = URL.createObjectURL(blob);
+  a.download = 'data-drop-export.json';
+  a.click();
+}
+
+init();
+</script>
+</body>
+</html>
