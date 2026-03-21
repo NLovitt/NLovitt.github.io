@@ -73,7 +73,7 @@
         //  SCANNER INPUT DETECTION
         // ==========================================
 
-            bindScanner() {
+         bindScanner() {
             const self = this;
 
             // Log ALL event types to find what the scanner uses
