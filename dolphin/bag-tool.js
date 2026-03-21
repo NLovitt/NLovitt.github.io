@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '5.0';
+    const BT_VERSION = '7.0';
 
     if (window.__bagTool) return;
 
@@ -27,15 +27,7 @@
             this.buildUI();
             this.bindScanner();
             this.log('Initialized - scan a bag to begin');
-            this.log('Active element: ' + (document.activeElement?.tagName || 'none') + '#' + (document.activeElement?.id || 'none'));
-            this.log('Document ready state: ' + document.readyState);
-                        // Dump all window properties that look scanner-related
-            Object.getOwnPropertyNames(window).forEach(k => {
-                const lower = k.toLowerCase();
-                if (lower.includes('scan') || lower.includes('barcode') || lower.includes('wedge') || lower.includes('zebra') || lower.includes('bridge') || lower.includes('native') || lower.includes('android')) {
-                    this.log('Window prop: ' + k + ' = ' + typeof window[k]);
-                }
-            });
+      
         }
 
         // ==========================================
@@ -80,132 +72,28 @@
         //  SCANNER INPUT DETECTION
         // ==========================================
 
-            bindScanner() {
+           bindScanner() {
             const self = this;
 
-            // ---- 1. Hook input value setter (catches direct .value = 'xxx') ----
-            const inputDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-            const origSet = inputDesc.set;
-            Object.defineProperty(HTMLInputElement.prototype, 'value', {
-                get: inputDesc.get,
-                set: function(val) {
-                    if (val && val.length > 3) {
-                        self.log('INPUT.value SET: "' + val + '" on #' + (this.id || this.name || this.tagName));
-                    }
-                    return origSet.call(this, val);
-                },
-                configurable: true
-            });
-
-            // Same for textarea
-            const taDesc = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
-            if (taDesc) {
-                const origTASet = taDesc.set;
-                Object.defineProperty(HTMLTextAreaElement.prototype, 'value', {
-                    get: taDesc.get,
-                    set: function(val) {
-                        if (val && val.length > 3) {
-                            self.log('TEXTAREA.value SET: "' + val + '"');
-                        }
-                        return origTASet.call(this, val);
-                    },
-                    configurable: true
-                });
-            }
-
-            // ---- 2. Listen for paste events ----
-            document.addEventListener('paste', function(e) {
-                const text = (e.clipboardData || window.clipboardData)?.getData('text');
-                self.log('PASTE event: "' + text + '"');
-            }, true);
-
-            // ---- 3. Listen for composition events (IME) ----
-            ['compositionstart', 'compositionupdate', 'compositionend'].forEach(evt => {
-                document.addEventListener(evt, function(e) {
-                    self.log('COMPOSITION: ' + e.type + ' data="' + e.data + '"');
-                }, true);
-            });
-
-            // ---- 4. Listen for custom events ----
-            ['scan', 'scanner', 'barcode', 'datawedge', 'scanresult'].forEach(evt => {
-                document.addEventListener(evt, function(e) {
-                    self.log('CUSTOM EVENT: ' + evt + ' detail=' + JSON.stringify(e.detail));
-                }, true);
-                window.addEventListener(evt, function(e) {
-                    self.log('WINDOW CUSTOM: ' + evt + ' detail=' + JSON.stringify(e.detail));
-                }, true);
-            });
-
-            // ---- 5. Check for Android bridge objects ----
-            const bridgeNames = [
-                'Android', 'android', 'scanner', 'Scanner',
-                'DataWedge', 'datawedge', 'ZebraScanner',
-                'ScannerPlugin', 'scannerPlugin',
-                'NativeInterface', 'nativeInterface',
-                'AppInterface', 'appInterface',
-                'JSInterface', 'jsInterface',
-                'webkit', 'BarcodeScanner',
-                'DolphinScanner', 'dolphinScanner'
-            ];
-            bridgeNames.forEach(name => {
-                if (window[name] !== undefined) {
-                    self.log('BRIDGE FOUND: window.' + name + ' = ' + typeof window[name]);
-                    try {
-                        const methods = Object.getOwnPropertyNames(window[name]);
-                        self.log('  methods: ' + methods.join(', '));
-                    } catch(e) {
-                        self.log('  (could not enumerate)');
-                    }
-                }
-            });
-
-            // ---- 6. Monitor window for new properties ----
-            const knownKeys = new Set(Object.keys(window));
-            setInterval(() => {
-                Object.keys(window).forEach(k => {
-                    if (!knownKeys.has(k)) {
-                        knownKeys.add(k);
-                        self.log('NEW window.' + k + ' = ' + typeof window[k]);
-                    }
-                });
-            }, 2000);
-
-            // ---- 7. Monkey-patch postMessage ----
-            const origPostMessage = window.postMessage;
-            window.postMessage = function(msg, origin) {
-                if (typeof msg === 'string' && msg.length > 3) {
-                    self.log('postMessage: "' + msg.substring(0, 100) + '"');
-                } else if (typeof msg === 'object') {
-                    self.log('postMessage obj: ' + JSON.stringify(msg).substring(0, 200));
-                }
-                return origPostMessage.apply(this, arguments);
-            };
-
-            // ---- 8. Monitor message events ----
-            window.addEventListener('message', function(e) {
-                const d = typeof e.data === 'string' ? e.data.substring(0, 200) : JSON.stringify(e.data).substring(0, 200);
-                self.log('MESSAGE event: ' + d);
-            }, true);
-
-            // ---- 9. Hook addEventListener itself to see what Dolphin listens for ----
-            const origAddEvent = EventTarget.prototype.addEventListener;
-            const loggedTypes = new Set();
-            EventTarget.prototype.addEventListener = function(type, fn, opts) {
-                if (!loggedTypes.has(type) && type !== 'error' && type !== 'load') {
-                    loggedTypes.add(type);
-                    self.log('addEventListener: "' + type + '" on ' + (this.id || this.tagName || this.constructor?.name || 'unknown'));
-                }
-                return origAddEvent.call(this, type, fn, opts);
-            };
-
-            // ---- 10. Still listen for keyboard just in case ----
             document.addEventListener('keydown', function(e) {
-                self.log('KEYDOWN: key=' + e.key + ' code=' + e.keyCode);
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    const active = document.activeElement;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+                        const val = active.value.trim();
+                        self.log('Enter on ' + active.tagName + '#' + (active.id || 'unknown') + ' value="' + val + '"');
+                        if (val.length > 3) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            active.value = '';
+                            self.processScan(val);
+                        }
+                    }
+                }
             }, true);
 
-            this.log('All diagnostic hooks attached');
-            this.log('Inputs found: ' + document.querySelectorAll('input').length);
+            this.log('Scanner listener attached (Enter-based)');
             this.log('Active element: ' + (document.activeElement?.tagName || 'none') + '#' + (document.activeElement?.id || ''));
+            this.log('BarcodeDetector: ' + (typeof window.BarcodeDetector));
         }
         // ==========================================
         //  SCAN PROCESSING
