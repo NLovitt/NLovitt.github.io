@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '1.36';
+    const BT_VERSION = '1.38';
 
     if (window.__bagTool) return;
 
@@ -16,6 +16,7 @@
             this.lastKeystroke = 0;
             this.history = [];
             this.el = {};
+            this.intercepting = false;
 
             this.init();
         }
@@ -26,8 +27,8 @@
             this.injectStyles();
             this.buildUI();
             this.bindScanner();
-            this.log('Initialized - scan a bag to begin');
-      
+            this.log('Initialized - passthrough mode, use Dolphin then tap ON');
+            this.setStatus('PASSTHROUGH', 'Use Dolphin to get token, then tap ON', 'pending');
         }
 
         // ==========================================
@@ -72,11 +73,13 @@
         //  SCANNER INPUT DETECTION
         // ==========================================
 
-           bindScanner() {
+             bindScanner() {
             const self = this;
 
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' || e.keyCode === 13) {
+                    if (!self.intercepting) return; // pass through to Dolphin
+
                     const active = document.activeElement;
                     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
                         const val = active.value.trim();
@@ -91,9 +94,7 @@
                 }
             }, true);
 
-            this.log('Scanner listener attached (Enter-based)');
-            this.log('Active element: ' + (document.activeElement?.tagName || 'none') + '#' + (document.activeElement?.id || ''));
-            this.log('BarcodeDetector: ' + (typeof window.BarcodeDetector));
+            this.log('Scanner listener attached (passthrough mode)');
         }
         // ==========================================
         //  SCAN PROCESSING
@@ -357,7 +358,19 @@
             bar.innerHTML = `
                 <div id="bt-main">
                     <span id="bt-state">SCAN BAG</span>
-                    <span id="bt-msg">Ready</span>
+                    <span id="bt-msg">Passthrough - use Dolphin to get token</span>
+                    <button id="bt-mode" style="
+                        margin-left:8px;
+                        padding:3px 8px;
+                        border:none;
+                        border-radius:4px;
+                        font-size:10px;
+                        font-weight:800;
+                        background:#ff4444;
+                        color:#fff;
+                        cursor:pointer;
+                        flex-shrink:0;
+                    ">OFF</button>
                     <div id="bt-token-dot"></div>
                 </div>
                 <div id="bt-detail"></div>
@@ -384,6 +397,11 @@
             this.el.historyToggle = document.getElementById('bt-history-toggle');
             this.el.historyPanel = document.getElementById('bt-history-panel');
             this.el.debug = document.getElementById('bt-debug');
+            this.el.modeBtn = document.getElementById('bt-mode');
+            this.el.modeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMode();
+            });
             this.el.copyBtn = document.getElementById('bt-copy');
             this.el.copyBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -429,6 +447,20 @@
             }
         }
 
+                toggleMode() {
+            this.intercepting = !this.intercepting;
+            this.el.modeBtn.textContent = this.intercepting ? 'ON' : 'OFF';
+            this.el.modeBtn.style.background = this.intercepting ? '#00e676' : '#ff4444';
+            this.el.modeBtn.style.color = this.intercepting ? '#000' : '#fff';
+            if (this.intercepting) {
+                this.setStatus('SCAN BAG', 'Ready', 'idle');
+            } else {
+                this.setStatus('PASSTHROUGH', 'Scans go to Dolphin', 'pending');
+                this.state = 'READY';
+                this.currentBag = null;
+            }
+            this.log('Mode: ' + (this.intercepting ? 'INTERCEPTING' : 'PASSTHROUGH'));
+        }
         updateTokenDot() {
             if (this.el.tokenDot) {
                 this.el.tokenDot.classList.toggle('bt-live', !!this.token);
