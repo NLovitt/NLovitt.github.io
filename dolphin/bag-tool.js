@@ -27,6 +27,8 @@
             this.buildUI();
             this.bindScanner();
             this.log('Initialized - scan a bag to begin');
+            this.log('Active element: ' + (document.activeElement?.tagName || 'none') + '#' + (document.activeElement?.id || 'none'));
+            this.log('Document ready state: ' + document.readyState);
         }
 
         // ==========================================
@@ -71,52 +73,70 @@
         //  SCANNER INPUT DETECTION
         // ==========================================
 
-        bindScanner() {
-            document.addEventListener('keydown', (e) => {
-                const now = Date.now();
-                const timeSinceLastKey = now - this.lastKeystroke;
+            bindScanner() {
+            const self = this;
 
-                // If Enter key, process the buffer
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    clearTimeout(this.scanTimeout);
-                    if (this.scanBuffer.length > 3) {
-                        this.processScan(this.scanBuffer);
+            // Log ALL event types to find what the scanner uses
+            ['keydown', 'keypress', 'keyup', 'input', 'textInput', 'beforeinput'].forEach(evt => {
+                document.addEventListener(evt, function(e) {
+                    const info = [
+                        'type=' + e.type,
+                        e.key ? 'key=' + e.key : '',
+                        e.data ? 'data=' + e.data : '',
+                        e.inputType ? 'inputType=' + e.inputType : '',
+                        e.keyCode ? 'code=' + e.keyCode : '',
+                        'target=' + (e.target.id || e.target.tagName || 'unknown')
+                    ].filter(Boolean).join(' | ');
+                    self.log(info);
+                }, true);
+            });
+
+            // Also watch for value changes on all inputs
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(m) {
+                    if (m.type === 'attributes' && m.attributeName === 'value') {
+                        self.log('Mutation: ' + m.target.tagName + '#' + m.target.id + ' value=' + m.target.value);
                     }
-                    this.scanBuffer = '';
-                    this.lastKeystroke = 0;
-                    return;
-                }
+                });
+            });
+            document.querySelectorAll('input').forEach(function(input) {
+                observer.observe(input, { attributes: true });
+                input.addEventListener('input', function(e) {
+                    self.log('Input event on #' + (input.id || 'unknown') + ' value=' + input.value);
+                });
+                input.addEventListener('change', function(e) {
+                    self.log('Change event on #' + (input.id || 'unknown') + ' value=' + input.value);
+                });
+            });
 
-                // Ignore modifier keys, function keys, etc
-                if (e.key.length !== 1) return;
+            // Also observe new inputs added later
+            new MutationObserver(function(mutations) {
+                mutations.forEach(function(m) {
+                    m.addedNodes.forEach(function(node) {
+                        if (node.tagName === 'INPUT') {
+                            self.log('New input added: #' + (node.id || node.name || 'unknown'));
+                            node.addEventListener('input', function(e) {
+                                self.log('Input event on new #' + (node.id || 'unknown') + ' value=' + node.value);
+                            });
+                        }
+                        if (node.querySelectorAll) {
+                            node.querySelectorAll('input').forEach(function(input) {
+                                self.log('New nested input: #' + (input.id || input.name || 'unknown'));
+                                input.addEventListener('input', function(e) {
+                                    self.log('Input event on nested #' + (input.id || 'unknown') + ' value=' + input.value);
+                                });
+                            });
+                        }
+                    });
+                });
+            }).observe(document.body, { childList: true, subtree: true });
 
-                // If gap > 200ms, start fresh buffer (new scan)
-                if (timeSinceLastKey > 200) {
-                    this.scanBuffer = '';
-                }
-
-                this.scanBuffer += e.key;
-                this.lastKeystroke = now;
-
-                // Prevent characters from reaching Dolphin's inputs
-                if (this.scanBuffer.length > 3) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                }
-
-                // Safety timeout - process if no Enter comes
-                clearTimeout(this.scanTimeout);
-                this.scanTimeout = setTimeout(() => {
-                    if (this.scanBuffer.length > 3) {
-                        this.processScan(this.scanBuffer);
-                    }
-                    this.scanBuffer = '';
-                }, 150);
-            }, true); // capture phase
+            this.log('All event listeners attached');
+            this.log('Current inputs: ' + document.querySelectorAll('input').length);
+            document.querySelectorAll('input').forEach(function(input, i) {
+                self.log('Input ' + i + ': id=' + (input.id || 'none') + ' type=' + input.type + ' focused=' + (document.activeElement === input));
+            });
         }
-
         // ==========================================
         //  SCAN PROCESSING
         // ==========================================
