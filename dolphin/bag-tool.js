@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '1.38';
+    const BT_VERSION = '1.39';
 
     if (window.__bagTool) return;
 
@@ -126,9 +126,7 @@
             }
 
             try {
-                const base = window.location.origin;
-                this.log('Using base: ' + base);
-                const res = await fetch(base + '/nss/open/validateBag', {
+                const res = await fetch('https://dolphin.amazon.com/nss/open/validateBag', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json, text/plain, */*',
@@ -141,7 +139,8 @@
                     })
                 });
 
-                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const body = await res.text();
+                throw new Error('HTTP ' + res.status + ' from ' + base + '/nss/open/validateBag | ' + body.substring(0, 200));
                 const data = await res.json();
 
                 if (data.responseCode === 'SUCCESS') {
@@ -181,8 +180,7 @@
             this.setStatus('LINKING', this.currentBag + ' -> ' + locationId, 'pending');
 
             try {
-                const base = window.location.origin;
-                const res = await fetch(base + '/nss/open/bag', {
+                const res = await fetch('https://dolphin.amazon.com/nss/open/bag', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json, text/plain, */*',
@@ -196,8 +194,10 @@
                     })
                 });
 
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const data = await res.json();
+                if (!res.ok) {
+                    const body = await res.text();
+                    throw new Error('HTTP ' + res.status + ' | ' + body.substring(0, 200));
+                }                const data = await res.json();
 
                 if (data.responseCode === 'SUCCESS') {
                     this.setStatus('SUCCESS', data.bagLabel + ' -> ' + data.destinationLabel, 'success');
