@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '7.0';
+    const BT_VERSION = '1.36';
 
     if (window.__bagTool) return;
 
@@ -112,17 +112,27 @@
             }
         }
 
-        async handleBagScan(bagId) {
+         async handleBagScan(bagId) {
             this.state = 'VALIDATING';
             this.currentBag = bagId;
             this.setStatus('VALIDATING', bagId, 'pending');
 
+            if (!this.token) {
+                this.setStatus('NO TOKEN', 'Use original app once first', 'error');
+                this.state = 'READY';
+                this.log('No token for validateBag');
+                return;
+            }
+
             try {
-                const res = await fetch('https://dolphin.amazon.com/nss/open/validateBag', {
+                const base = window.location.origin;
+                this.log('Using base: ' + base);
+                const res = await fetch(base + '/nss/open/validateBag', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json, text/plain, */*',
-                        'Content-Type': 'application/json;charset=utf-8'
+                        'Content-Type': 'application/json;charset=utf-8',
+                        'x-amz-access-token': this.token
                     },
                     body: JSON.stringify({
                         bagScannableId: bagId,
@@ -153,8 +163,7 @@
                 this.log('validateBag failed: ' + err.message);
             }
         }
-
-        async handleLocationScan(locationId) {
+           async handleLocationScan(locationId) {
             if (!this.currentBag) {
                 this.state = 'READY';
                 this.setStatus('ERROR', 'No bag scanned', 'error');
@@ -171,7 +180,8 @@
             this.setStatus('LINKING', this.currentBag + ' -> ' + locationId, 'pending');
 
             try {
-                const res = await fetch('https://dolphin.amazon.com/nss/open/bag', {
+                const base = window.location.origin;
+                const res = await fetch(base + '/nss/open/bag', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json, text/plain, */*',
@@ -203,7 +213,6 @@
                 this.log('open/bag failed: ' + err.message);
             }
 
-            // Reset for next bag after brief display
             const bag = this.currentBag;
             this.currentBag = null;
             setTimeout(() => {
