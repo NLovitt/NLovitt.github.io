@@ -86,6 +86,37 @@
     .version { color: #333; font-size: 11px; margin-top: 24px; }
     .error { color: #ff4444; }
     #status { margin-bottom: 16px; font-size: 13px; color: #888; }
+        .link-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .link-btn {
+      padding: 12px 8px;
+      background: #0f3460;
+      border: 1px solid #1a4a7a;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .link-btn:active { border-color: #ff9900; }
+    .link-btn .link-label { color: #ff9900; font-size: 11px; display: block; margin-bottom: 4px; }
+    .qr-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 999999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .qr-overlay-title { color: #ff9900; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .qr-overlay-url { color: #666; font-size: 10px; margin-bottom: 16px; word-break: break-all; text-align: center; max-width: 300px; }
+    .qr-overlay-box { background: white; padding: 16px; border-radius: 12px; margin-bottom: 16px; }
+    .qr-overlay-hint { color: #444; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -119,6 +150,11 @@
     <button class="copy-btn" id="copy-btn">📋 COPY BOOKMARKLET</button>
   </div>
 
+    <!-- Quick Links Card -->
+  <div class="card" id="links-card">
+    <div class="card-title">Dolphin Quick Links</div>
+    <div class="link-grid" id="link-grid"></div>
+  </div>
   <!-- Script Loader (optional src param) -->
   <div class="card" id="loader-card" style="display:none;">
     <div class="card-title">Script Loader</div>
@@ -138,13 +174,57 @@
     // Base URL for scripts hosted alongside this page
     const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/');
 
+    // Dolphin quick links — always show regardless of src param
+    var dolphinLinks = [
+        { label: 'STOW', url: 'https://na.sew.dolphinprod.last-mile.amazon.dev/#/' },
+        { label: 'INDUCT', url: 'https://na.iew.dolphinprod.last-mile.amazon.dev/#/' },
+        { label: 'PS', url: 'https://na.problemsolve-prod.dolphinprod.last-mile.amazon.dev/' },
+        { label: 'PICK', url: 'https://na-prod-pick.dolphinprod.last-mile.amazon.dev/#/home' },
+        { label: 'RTS', url: 'https://na.rts.dolphinprod.last-mile.amazon.dev/#/' }
+    ];
+
+    var linkGrid = document.getElementById('link-grid');
+    dolphinLinks.forEach(function(link) {
+        var btn = document.createElement('button');
+        btn.className = 'link-btn';
+        btn.innerHTML = '<span class="link-label">' + link.label + '</span>' + link.url.replace(/https?:\/\//, '').split('/')[0].split('.')[0].toUpperCase();
+        btn.addEventListener('click', function() {
+            showLinkQR(link.label, link.url);
+        });
+        linkGrid.appendChild(btn);
+    });
+
+    function showLinkQR(label, url) {
+        var old = document.getElementById('dt-link-overlay');
+        if (old) old.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'dt-link-overlay';
+        overlay.className = 'qr-overlay';
+        overlay.innerHTML =
+            '<div class="qr-overlay-title">' + label + '</div>' +
+            '<div class="qr-overlay-url">' + url + '</div>' +
+            '<div class="qr-overlay-box" id="dt-link-qr"></div>' +
+            '<div class="qr-overlay-hint">Tap anywhere to close</div>';
+        overlay.addEventListener('click', function() { overlay.remove(); });
+        document.body.appendChild(overlay);
+
+        new QRCode(document.getElementById('dt-link-qr'), {
+            text: url,
+            width: 220,
+            height: 220,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+        });
+    }
+
     if (!scriptSrc) {
         document.querySelector('.subtitle').textContent = 'Add ?src=dolphin-tool.js to the URL';
         document.querySelector('.subtitle').classList.add('error');
         document.getElementById('status').textContent = 'No script specified in URL parameters.';
         return;
     }
-
     // Build full script URL
     const fullSrc = scriptSrc.startsWith('http') ? scriptSrc : baseUrl + scriptSrc;
 
@@ -189,6 +269,50 @@
         correctLevel: QRCode.CorrectLevel.L
     });
 
+        // Dolphin quick links
+    var dolphinLinks = [
+        { label: 'STOW', url: 'https://na.sew.dolphinprod.last-mile.amazon.dev/#/' },
+        { label: 'INDUCT', url: 'https://na.iew.dolphinprod.last-mile.amazon.dev/#/' },
+        { label: 'PS', url: 'https://na.problemsolve-prod.dolphinprod.last-mile.amazon.dev/' },
+        { label: 'PICK', url: 'https://na-prod-pick.dolphinprod.last-mile.amazon.dev/#/home' },
+        { label: 'RTS', url: 'https://na.rts.dolphinprod.last-mile.amazon.dev/#/' }
+    ];
+
+    var linkGrid = document.getElementById('link-grid');
+    dolphinLinks.forEach(function(link) {
+        var btn = document.createElement('button');
+        btn.className = 'link-btn';
+        btn.innerHTML = '<span class="link-label">' + link.label + '</span>' + link.url.replace(/https?:\/\//, '').split('/')[0].split('.')[0].toUpperCase();
+        btn.addEventListener('click', function() {
+            showLinkQR(link.label, link.url);
+        });
+        linkGrid.appendChild(btn);
+    });
+
+    function showLinkQR(label, url) {
+        var old = document.getElementById('dt-link-overlay');
+        if (old) old.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'dt-link-overlay';
+        overlay.className = 'qr-overlay';
+        overlay.innerHTML =
+            '<div class="qr-overlay-title">' + label + '</div>' +
+            '<div class="qr-overlay-url">' + url + '</div>' +
+            '<div class="qr-overlay-box" id="dt-link-qr"></div>' +
+            '<div class="qr-overlay-hint">Tap anywhere to close</div>';
+        overlay.addEventListener('click', function() { overlay.remove(); });
+        document.body.appendChild(overlay);
+
+        new QRCode(document.getElementById('dt-link-qr'), {
+            text: url,
+            width: 220,
+            height: 220,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+        });
+    }
     // Status
     document.getElementById('status').innerHTML = 'Script ready: <code>' + scriptSrc + '</code>';
 
