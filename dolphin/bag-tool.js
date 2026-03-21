@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '1.0';
+    const BT_VERSION = '5.0';
 
     if (window.__bagTool) return;
 
@@ -467,6 +467,14 @@
                 <button id="bt-history-toggle">history</button>
                 <div id="bt-history-panel"></div>
                 <div id="bt-debug"></div>
+                <button id="bt-copy" style="
+                    display:block; width:100%;
+                    background:none; border:none;
+                    border-top:1px solid rgba(255,255,255,0.1);
+                    color:rgba(255,255,255,0.3);
+                    font-size:10px; padding:4px;
+                    cursor:pointer; text-align:center;
+                ">COPY LOG</button>
                 <div class="bt-ver">v${BT_VERSION}</div>
             `;
             document.body.appendChild(bar);
@@ -479,6 +487,11 @@
             this.el.historyToggle = document.getElementById('bt-history-toggle');
             this.el.historyPanel = document.getElementById('bt-history-panel');
             this.el.debug = document.getElementById('bt-debug');
+            this.el.copyBtn = document.getElementById('bt-copy');
+            this.el.copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.copyHistory();
+            });
 
             // Toggle history
             this.el.historyToggle.addEventListener('click', (e) => {
@@ -536,6 +549,29 @@
             ).join('');
         }
 
+                copyHistory() {
+            const lines = this.history.map(h =>
+                h.bag + ' -> ' + h.dest + (h.isError ? ' [ERROR]' : '')
+            ).join('\n');
+
+            const debugLines = this.el.debug ? this.el.debug.textContent : '';
+            const output = '=== BAG HISTORY ===\n' + (lines || '(empty)') + '\n\n=== DEBUG LOG ===\n' + debugLines;
+
+            navigator.clipboard.writeText(output).then(() => {
+                this.el.copyBtn.textContent = 'COPIED';
+                setTimeout(() => { this.el.copyBtn.textContent = 'COPY LOG'; }, 1500);
+            }).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = output;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                this.el.copyBtn.textContent = 'COPIED';
+                setTimeout(() => { this.el.copyBtn.textContent = 'COPY LOG'; }, 1500);
+            });
+            this.log('Copied to clipboard');
+        }
         log(msg) {
             const ts = new Date().toLocaleTimeString();
             const entry = '[' + ts + '] ' + msg;
