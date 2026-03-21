@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '1.40';
+    const BT_VERSION = '1.50';
 
     if (window.__bagTool) return;
 
@@ -153,80 +153,98 @@
                     } else {
                         this.setStatus('SCAN LOCATION', bagId + ' (no current destination)', 'ready');
                     }
+                    this.playSound('scan');
                     this.log('Bag valid: ' + bagId + (existing ? ' at ' + existing : ' unlinked'));
                 } else {
                     this.state = 'READY';
                     this.setStatus('BAG ERROR', data.responseCode || 'Unknown error', 'error');
+                    this.playSound('error');
                     this.log('Bag error: ' + (data.responseCode || 'unknown'));
                 }
             } catch (err) {
                 this.state = 'READY';
                 this.setStatus('ERROR', err.message, 'error');
+                this.playSound('error');
                 this.log('validateBag failed: ' + err.message);
             }
         }
-           async handleLocationScan(locationId) {
+            async handleLocationScan(locationId) {
             if (!this.currentBag) {
                 this.state = 'READY';
                 this.setStatus('ERROR', 'No bag scanned', 'error');
+                this.playSound('error');
                 return;
             }
 
             if (!this.token) {
                 this.setStatus('NO TOKEN', 'Use original app once first', 'error');
+                this.playSound('error');
                 this.log('No token for linking');
                 return;
             }
 
-            this.state = 'LINKING';
-            this.setStatus('LINKING', this.currentBag + ' -> ' + locationId, 'pending');
+            const bag = this.currentBag;
+            this.currentBag = null;
 
-            try {
-                const res = await fetch('https://dolphin.amazon.com/nss/open/bag', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*',
-                        'Content-Type': 'application/json;charset=utf-8',
-                        'x-amz-access-token': this.token
-                    },
-                    body: JSON.stringify({
-                        bagScannableId: this.currentBag,
-                        destinationScannableId: locationId,
-                        scope: 'AMZL'
-                    })
-                });
+            // Reset IMMEDIATELY - ready for next bag scan with no delay
+            this.state = 'READY';
+            this.setStatus('LINKING...', bag + ' -> ' + locationId, 'pending');
+            this.playSound('scan');
 
+            // Fire and forget - don't await
+            this.linkBagAsync(bag, locationId);
+        }
+
+        linkBagAsync(bag, locationId) {
+            fetch('https://dolphin.amazon.com/nss/open/bag', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json;charset=utf-8',
+                    'x-amz-access-token': this.token
+                },
+                body: JSON.stringify({
+                    bagScannableId: bag,
+                    destinationScannableId: locationId,
+                    scope: 'AMZL'
+                })
+            }).then(async (res) => {
                 if (!res.ok) {
                     const body = await res.text();
                     throw new Error('HTTP ' + res.status + ' | ' + body.substring(0, 200));
-                }                const data = await res.json();
-
+                }
+                return res.json();
+            }).then((data) => {
                 if (data.responseCode === 'SUCCESS') {
-                    this.setStatus('SUCCESS', data.bagLabel + ' -> ' + data.destinationLabel, 'success');
                     this.addHistory(data.bagLabel, data.destinationLabel, false);
+                    this.playSound('success');
                     this.log('Linked: ' + data.bagLabel + ' -> ' + data.destinationLabel);
+                    // Only update status if user hasn't already started next scan
+                    if (this.state === 'READY' && !this.currentBag) {
+                        this.setStatus('SCAN BAG', 'Last: ' + data.bagLabel + ' -> ' + data.destinationLabel, 'success');
+                        setTimeout(() => {
+                            if (this.state === 'READY' && !this.currentBag) {
+                                this.setStatus('SCAN BAG', 'Ready', 'idle');
+                            }
+                        }, 2000);
+                    }
                 } else {
-                    this.setStatus('LINK ERROR', data.responseCode || 'Unknown', 'error');
-                    this.addHistory(this.currentBag, 'ERROR', true);
+                    this.addHistory(bag, data.responseCode || 'ERROR', true);
+                    this.playSound('error');
                     this.log('Link error: ' + (data.responseCode || 'unknown'));
+                    if (this.state === 'READY' && !this.currentBag) {
+                        this.setStatus('LINK ERROR', data.responseCode || 'Unknown', 'error');
+                    }
                 }
-            } catch (err) {
-                this.setStatus('ERROR', err.message, 'error');
-                this.addHistory(this.currentBag, 'ERROR', true);
+            }).catch((err) => {
+                this.addHistory(bag, 'ERR', true);
+                this.playSound('error');
                 this.log('open/bag failed: ' + err.message);
-            }
-
-            const bag = this.currentBag;
-            this.currentBag = null;
-            setTimeout(() => {
-                if (this.state === 'LINKING' || this.state === 'SUCCESS') {
-                    this.state = 'READY';
-                    this.setStatus('SCAN BAG', 'Ready', 'idle');
+                if (this.state === 'READY' && !this.currentBag) {
+                    this.setStatus('ERROR', err.message, 'error');
                 }
-            }, 1500);
-            this.state = 'READY';
+            });
         }
-
         // ==========================================
         //  STYLES
         // ==========================================
@@ -502,6 +520,39 @@
                 setTimeout(() => { this.el.copyBtn.textContent = 'COPY LOG'; }, 1500);
             });
             this.log('Copied to clipboard');
+        }
+                playSound(type) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'success') {
+                    osc.frequency.value = 880;
+                    gain.gain.value = 0.3;
+                    osc.start();
+                    osc.frequency.setValueAtTime(1108, ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0, ctx.currentTime + 0.2);
+                    osc.stop(ctx.currentTime + 0.2);
+                } else if (type === 'error') {
+                    osc.frequency.value = 300;
+                    gain.gain.value = 0.4;
+                    osc.start();
+                    osc.frequency.setValueAtTime(200, ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0, ctx.currentTime + 0.4);
+                    osc.stop(ctx.currentTime + 0.4);
+                } else if (type === 'scan') {
+                    osc.frequency.value = 1200;
+                    gain.gain.value = 0.15;
+                    osc.start();
+                    gain.gain.setValueAtTime(0, ctx.currentTime + 0.05);
+                    osc.stop(ctx.currentTime + 0.05);
+                }
+            } catch (e) {
+                // Audio not available
+            }
         }
         log(msg) {
             const ts = new Date().toLocaleTimeString();
