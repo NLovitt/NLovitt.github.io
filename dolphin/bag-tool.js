@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '1.39';
+    const BT_VERSION = '1.40';
 
     if (window.__bagTool) return;
 
@@ -139,8 +139,10 @@
                     })
                 });
 
-                const body = await res.text();
-                throw new Error('HTTP ' + res.status + ' from ' + base + '/nss/open/validateBag | ' + body.substring(0, 200));
+                if (!res.ok) {
+                    const body = await res.text();
+                    throw new Error('HTTP ' + res.status + ' | ' + body.substring(0, 200));
+                }
                 const data = await res.json();
 
                 if (data.responseCode === 'SUCCESS') {
