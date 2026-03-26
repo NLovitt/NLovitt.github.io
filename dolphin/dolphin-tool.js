@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const DT_VERSION = '2.01';
+    const DT_VERSION = '2.02';
 
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
