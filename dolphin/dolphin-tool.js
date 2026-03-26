@@ -192,89 +192,123 @@
             this.log('Patched HTMLElement.focus()');
         }
 
-        extractTokenFromStorage() {
-            this.log('Scanning storage for tokens...');
-            let found = 0;
+          extractTokenFromStorage() {
+            this.log('=== FULL STORAGE SCAN ===');
 
-            // Search localStorage
+            // Log ALL localStorage keys
+            this.log('localStorage keys: ' + localStorage.length);
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
                 const v = localStorage.getItem(k);
-                if (!v) continue;
+                this.log('  LS[' + k + '] len=' + (v ? v.length : 0));
 
-                // Log all keys for diagnostics
-                if (v.length > 50) {
-                    this.log('LS key: ' + k + ' len=' + v.length + ' prefix=' + v.substring(0, 20));
-                }
-
-                // JWT tokens
-                if (v.startsWith('eyJ') && v.length > 100) {
-                    found++;
+                // Check inside JSON values for nested tokens
+                if (v && v.startsWith('{')) {
                     try {
-                        const payload = JSON.parse(atob(v.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-                        this.log('JWT found in LS: ' + k);
-                        this.log('  iss=' + (payload.iss || '?'));
-                        this.log('  aud=' + (payload.aud || '?'));
-                        this.log('  sub=' + (payload.sub || '?'));
-                        this.log('  exp=' + (payload.exp ? new Date(payload.exp * 1000).toLocaleString() : '?'));
-
-                        // Check if not expired
-                        if (payload.exp && payload.exp > Date.now() / 1000) {
-                            this.captureToken(v, 'localStorage/' + k);
+                        const obj = JSON.parse(v);
+                        const flat = JSON.stringify(obj);
+                        const jwtMatch = flat.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/);
+                        if (jwtMatch) {
+                            this.log('  NESTED JWT in ' + k + ': ' + jwtMatch[0].substring(0, 30) + '...');
+                            this.captureToken(jwtMatch[0], 'nested-LS/' + k);
                             return true;
-                        } else {
-                            this.log('  EXPIRED -- skipping');
                         }
-                    } catch (e) {
-                        this.log('  decode error: ' + e.message);
-                    }
+                        const atnaMatch = flat.match(/Atna\|[A-Za-z0-9_-]{20,}/);
+                        if (atnaMatch) {
+                            this.log('  NESTED Atna in ' + k);
+                            this.captureToken(atnaMatch[0], 'nested-LS/' + k);
+                            return true;
+                        }
+                    } catch (e) {}
                 }
 
-                // Atna tokens
-                if (v.startsWith('Atna|') && v.length > 50) {
-                    found++;
-                    this.log('Atna token in LS: ' + k + ' len=' + v.length);
-                    this.captureToken(v, 'localStorage/' + k);
+                // Direct JWT/Atna check
+                if (v && v.startsWith('eyJ') && v.length > 100) {
+                    this.captureToken(v, 'LS/' + k);
+                    return true;
+                }
+                if (v && v.startsWith('Atna|') && v.length > 50) {
+                    this.captureToken(v, 'LS/' + k);
                     return true;
                 }
             }
 
-            // Search sessionStorage
+            // Log ALL sessionStorage keys
+            this.log('sessionStorage keys: ' + sessionStorage.length);
             for (let i = 0; i < sessionStorage.length; i++) {
                 const k = sessionStorage.key(i);
                 const v = sessionStorage.getItem(k);
-                if (!v) continue;
+                this.log('  SS[' + k + '] len=' + (v ? v.length : 0));
 
-                if (v.length > 50) {
-                    this.log('SS key: ' + k + ' len=' + v.length + ' prefix=' + v.substring(0, 20));
-                }
-
-                if (v.startsWith('eyJ') && v.length > 100) {
-                    found++;
+                if (v && v.startsWith('{')) {
                     try {
-                        const payload = JSON.parse(atob(v.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-                        this.log('JWT found in SS: ' + k);
-                        this.log('  iss=' + (payload.iss || '?'));
-                        this.log('  exp=' + (payload.exp ? new Date(payload.exp * 1000).toLocaleString() : '?'));
-
-                        if (payload.exp && payload.exp > Date.now() / 1000) {
-                            this.captureToken(v, 'sessionStorage/' + k);
+                        const flat = JSON.stringify(JSON.parse(v));
+                        const jwtMatch = flat.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/);
+                        if (jwtMatch) {
+                            this.log('  NESTED JWT in SS ' + k);
+                            this.captureToken(jwtMatch[0], 'nested-SS/' + k);
                             return true;
                         }
-                    } catch (e) { }
+                    } catch (e) {}
                 }
 
-                if (v.startsWith('Atna|') && v.length > 50) {
-                    found++;
-                    this.captureToken(v, 'sessionStorage/' + k);
+                if (v && v.startsWith('eyJ') && v.length > 100) {
+                    this.captureToken(v, 'SS/' + k);
                     return true;
                 }
             }
 
-            this.log('Storage scan done. Candidates found: ' + found + ', captured: ' + (this.token ? 'yes' : 'no'));
-            return !!this.token;
-        }
+            // Check cookies
+            this.log('Cookies: ' + document.cookie.length + ' chars');
+            const cookies = document.cookie.split(';');
+            cookies.forEach(c => {
+                const parts = c.trim().split('=');
+                const name = parts[0];
+                const val = parts.slice(1).join('=');
+                if (val && val.length > 30) {
+                    this.log('  Cookie[' + name + '] len=' + val.length);
+                }
+                if (val && val.startsWith('eyJ') && val.length > 100) {
+                    this.log('  JWT COOKIE: ' + name);
+                    this.captureToken(val, 'cookie/' + name);
+                }
+            });
 
+            // Check for Amplify Auth on window
+            const amplifyPaths = [
+                'aws_amplify_auth', 'Amplify', 'Auth',
+                '__amplify__', '_amplifyConfig',
+                'AmplifyConfig', 'awsconfig'
+            ];
+            amplifyPaths.forEach(p => {
+                if (window[p] !== undefined) {
+                    this.log('window.' + p + ' = ' + typeof window[p]);
+                }
+            });
+
+            // Check for any global with token-like methods
+            ['getToken', 'getAccessToken', 'getIdToken', 'currentSession',
+             'getSession', 'fetchAuthSession', 'Auth'].forEach(name => {
+                try {
+                    if (typeof window[name] === 'function') {
+                        this.log('window.' + name + '() exists');
+                    }
+                } catch (e) {}
+            });
+
+            // Check CognitoIdentityServiceProvider keys specifically
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k.includes('Cognito') || k.includes('cognito') ||
+                    k.includes('amplify') || k.includes('maask') ||
+                    k.includes('token') || k.includes('auth')) {
+                    this.log('  AUTH-RELATED: ' + k);
+                }
+            }
+
+            this.log('=== SCAN COMPLETE - NO TOKEN FOUND ===');
+            return false;
+        }
         captureToken(token, source) {
             this.token = token;
             this.tokenTimestamp = Date.now();
