@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const DT_VERSION = '2.0';
+    const DT_VERSION = '2.01';
 
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
@@ -638,8 +638,20 @@
                             overflow-y: auto;
                             white-space: pre-wrap;
                             word-break: break-all;
+                            
                         "></div>
                     </div>
+                    <button id="dt-copy-debug" style="
+                            width:100%;
+                            background:none;
+                            border:1px solid rgba(255,255,255,0.1);
+                            color:rgba(255,255,255,0.3);
+                            font-size:10px;
+                            padding:4px;
+                            margin-top:4px;
+                            cursor:pointer;
+                            border-radius:4px;
+                        ">COPY DEBUG LOG</button>
                 </div>
 
                 <div class="dt-footer" id="dt-footer">
@@ -705,6 +717,32 @@
             document.getElementById('dt-scan-storage').addEventListener('click', e => {
                 e.stopPropagation();
                 this.extractTokenFromStorage();
+            });
+            document.getElementById('dt-copy-debug').addEventListener('click', e => {
+                e.stopPropagation();
+                const debugText = this.el.debugLog ? this.el.debugLog.textContent : '';
+                const historyText = this.history.map(h =>
+                    h.tba + ' -> ' + h.location + (h.isError ? ' [ERROR]' : '')
+                ).join('\n');
+                const output = '=== HISTORY ===\n' + (historyText || '(empty)') + '\n\n=== DEBUG ===\n' + debugText;
+                navigator.clipboard.writeText(output).then(() => {
+                    document.getElementById('dt-copy-debug').textContent = 'COPIED';
+                    setTimeout(() => {
+                        document.getElementById('dt-copy-debug').textContent = 'COPY DEBUG LOG';
+                    }, 1500);
+                }).catch(() => {
+                    const ta = document.createElement('textarea');
+                    ta.value = output;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                    document.getElementById('dt-copy-debug').textContent = 'COPIED';
+                    setTimeout(() => {
+                        document.getElementById('dt-copy-debug').textContent = 'COPY DEBUG LOG';
+                    }, 1500);
+                });
+                this.log('Copied to clipboard');
             });
 
             setInterval(() => this.updateTokenAge(), 15000);
