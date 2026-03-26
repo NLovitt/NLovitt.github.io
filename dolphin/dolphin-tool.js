@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const DT_VERSION = '2.02';
+    const DT_VERSION = '1.9';
 
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
@@ -29,19 +29,6 @@
             this.log('Initialized — waiting for token...');
             this.log('URL: ' + window.location.href);
             this.log('DOM inputs found: ' + document.querySelectorAll('input').length);
-            // Try to grab token from storage immediately
-            setTimeout(() => {
-                if (!this.token) {
-                    this.extractTokenFromStorage();
-                }
-            }, 2000);
-
-            // Retry periodically in case token appears later
-            setInterval(() => {
-                if (!this.token) {
-                    this.extractTokenFromStorage();
-                }
-            }, 10000);
         }
 
         // ==========================================
@@ -115,7 +102,7 @@
             });
         }
 
-        async showTokenQR() {
+                async showTokenQR() {
             if (!this.token) {
                 this.log('No token to export');
                 return;
@@ -179,7 +166,7 @@
             return false;
         }
 
-        patchFocus() {
+         patchFocus() {
             const self = this;
             const origFocus = HTMLElement.prototype.focus;
 
@@ -192,123 +179,6 @@
             this.log('Patched HTMLElement.focus()');
         }
 
-          extractTokenFromStorage() {
-            this.log('=== FULL STORAGE SCAN ===');
-
-            // Log ALL localStorage keys
-            this.log('localStorage keys: ' + localStorage.length);
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                const v = localStorage.getItem(k);
-                this.log('  LS[' + k + '] len=' + (v ? v.length : 0));
-
-                // Check inside JSON values for nested tokens
-                if (v && v.startsWith('{')) {
-                    try {
-                        const obj = JSON.parse(v);
-                        const flat = JSON.stringify(obj);
-                        const jwtMatch = flat.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/);
-                        if (jwtMatch) {
-                            this.log('  NESTED JWT in ' + k + ': ' + jwtMatch[0].substring(0, 30) + '...');
-                            this.captureToken(jwtMatch[0], 'nested-LS/' + k);
-                            return true;
-                        }
-                        const atnaMatch = flat.match(/Atna\|[A-Za-z0-9_-]{20,}/);
-                        if (atnaMatch) {
-                            this.log('  NESTED Atna in ' + k);
-                            this.captureToken(atnaMatch[0], 'nested-LS/' + k);
-                            return true;
-                        }
-                    } catch (e) {}
-                }
-
-                // Direct JWT/Atna check
-                if (v && v.startsWith('eyJ') && v.length > 100) {
-                    this.captureToken(v, 'LS/' + k);
-                    return true;
-                }
-                if (v && v.startsWith('Atna|') && v.length > 50) {
-                    this.captureToken(v, 'LS/' + k);
-                    return true;
-                }
-            }
-
-            // Log ALL sessionStorage keys
-            this.log('sessionStorage keys: ' + sessionStorage.length);
-            for (let i = 0; i < sessionStorage.length; i++) {
-                const k = sessionStorage.key(i);
-                const v = sessionStorage.getItem(k);
-                this.log('  SS[' + k + '] len=' + (v ? v.length : 0));
-
-                if (v && v.startsWith('{')) {
-                    try {
-                        const flat = JSON.stringify(JSON.parse(v));
-                        const jwtMatch = flat.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/);
-                        if (jwtMatch) {
-                            this.log('  NESTED JWT in SS ' + k);
-                            this.captureToken(jwtMatch[0], 'nested-SS/' + k);
-                            return true;
-                        }
-                    } catch (e) {}
-                }
-
-                if (v && v.startsWith('eyJ') && v.length > 100) {
-                    this.captureToken(v, 'SS/' + k);
-                    return true;
-                }
-            }
-
-            // Check cookies
-            this.log('Cookies: ' + document.cookie.length + ' chars');
-            const cookies = document.cookie.split(';');
-            cookies.forEach(c => {
-                const parts = c.trim().split('=');
-                const name = parts[0];
-                const val = parts.slice(1).join('=');
-                if (val && val.length > 30) {
-                    this.log('  Cookie[' + name + '] len=' + val.length);
-                }
-                if (val && val.startsWith('eyJ') && val.length > 100) {
-                    this.log('  JWT COOKIE: ' + name);
-                    this.captureToken(val, 'cookie/' + name);
-                }
-            });
-
-            // Check for Amplify Auth on window
-            const amplifyPaths = [
-                'aws_amplify_auth', 'Amplify', 'Auth',
-                '__amplify__', '_amplifyConfig',
-                'AmplifyConfig', 'awsconfig'
-            ];
-            amplifyPaths.forEach(p => {
-                if (window[p] !== undefined) {
-                    this.log('window.' + p + ' = ' + typeof window[p]);
-                }
-            });
-
-            // Check for any global with token-like methods
-            ['getToken', 'getAccessToken', 'getIdToken', 'currentSession',
-             'getSession', 'fetchAuthSession', 'Auth'].forEach(name => {
-                try {
-                    if (typeof window[name] === 'function') {
-                        this.log('window.' + name + '() exists');
-                    }
-                } catch (e) {}
-            });
-
-            // Check CognitoIdentityServiceProvider keys specifically
-            for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k.includes('Cognito') || k.includes('cognito') ||
-                    k.includes('amplify') || k.includes('maask') ||
-                    k.includes('token') || k.includes('auth')) {
-                    this.log('  AUTH-RELATED: ' + k);
-                }
-            }
-
-            this.log('=== SCAN COMPLETE - NO TOKEN FOUND ===');
-            return false;
-        }
         captureToken(token, source) {
             this.token = token;
             this.tokenTimestamp = Date.now();
@@ -639,7 +509,6 @@
                         <div style="display: flex; gap: 8px; margin-top: 8px;">
                             <button class="dt-btn" id="dt-export-qr" style="flex:1; background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px;">EXPORT TOKEN</button>
                             <button class="dt-btn" id="dt-import-qr" style="flex:1; background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px;">IMPORT TOKEN</button>
-                            <button class="dt-btn" id="dt-scan-storage" style="background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px; margin-top:4px;">SCAN STORAGE FOR TOKEN</button>
                         </div>
                     </div>
 
@@ -672,10 +541,9 @@
                             overflow-y: auto;
                             white-space: pre-wrap;
                             word-break: break-all;
-                            
                         "></div>
                     </div>
-                    <button id="dt-copy-debug" style="
+                                            <button id="dt-copy-debug" style="
                             width:100%;
                             background:none;
                             border:1px solid rgba(255,255,255,0.1);
@@ -716,7 +584,7 @@
         //  EVENT BINDING
         // ==========================================
 
-        bindEvents() {
+         bindEvents() {
             // Stop clicks/touches from reaching Dolphin
             ['click', 'touchstart', 'touchend'].forEach(evt => {
                 this.el.panel.addEventListener(evt, e => {
@@ -748,11 +616,7 @@
                 const input = prompt('Paste token JSON (from QR scan):');
                 if (input) this.importToken(input);
             });
-            document.getElementById('dt-scan-storage').addEventListener('click', e => {
-                e.stopPropagation();
-                this.extractTokenFromStorage();
-            });
-            document.getElementById('dt-copy-debug').addEventListener('click', e => {
+                        document.getElementById('dt-copy-debug').addEventListener('click', e => {
                 e.stopPropagation();
                 const debugText = this.el.debugLog ? this.el.debugLog.textContent : '';
                 const historyText = this.history.map(h =>
@@ -778,7 +642,6 @@
                 });
                 this.log('Copied to clipboard');
             });
-
             setInterval(() => this.updateTokenAge(), 15000);
         }
         // ==========================================
@@ -818,7 +681,7 @@
         //  INDUCT HANDLER
         // ==========================================
 
-        async handleInduct() {
+         async handleInduct() {
             const raw = this.el.tba.value.trim();
             const loc = this.el.loc.value.trim();
 
