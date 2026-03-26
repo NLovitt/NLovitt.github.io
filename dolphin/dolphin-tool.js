@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const DT_VERSION = '1.9';
+    const DT_VERSION = '2.0';
 
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
@@ -29,6 +29,19 @@
             this.log('Initialized — waiting for token...');
             this.log('URL: ' + window.location.href);
             this.log('DOM inputs found: ' + document.querySelectorAll('input').length);
+            // Try to grab token from storage immediately
+            setTimeout(() => {
+                if (!this.token) {
+                    this.extractTokenFromStorage();
+                }
+            }, 2000);
+
+            // Retry periodically in case token appears later
+            setInterval(() => {
+                if (!this.token) {
+                    this.extractTokenFromStorage();
+                }
+            }, 10000);
         }
 
         // ==========================================
@@ -102,7 +115,7 @@
             });
         }
 
-                async showTokenQR() {
+        async showTokenQR() {
             if (!this.token) {
                 this.log('No token to export');
                 return;
@@ -166,7 +179,7 @@
             return false;
         }
 
-         patchFocus() {
+        patchFocus() {
             const self = this;
             const origFocus = HTMLElement.prototype.focus;
 
@@ -177,6 +190,89 @@
                 return origFocus.call(this, options);
             };
             this.log('Patched HTMLElement.focus()');
+        }
+
+        extractTokenFromStorage() {
+            this.log('Scanning storage for tokens...');
+            let found = 0;
+
+            // Search localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                const v = localStorage.getItem(k);
+                if (!v) continue;
+
+                // Log all keys for diagnostics
+                if (v.length > 50) {
+                    this.log('LS key: ' + k + ' len=' + v.length + ' prefix=' + v.substring(0, 20));
+                }
+
+                // JWT tokens
+                if (v.startsWith('eyJ') && v.length > 100) {
+                    found++;
+                    try {
+                        const payload = JSON.parse(atob(v.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                        this.log('JWT found in LS: ' + k);
+                        this.log('  iss=' + (payload.iss || '?'));
+                        this.log('  aud=' + (payload.aud || '?'));
+                        this.log('  sub=' + (payload.sub || '?'));
+                        this.log('  exp=' + (payload.exp ? new Date(payload.exp * 1000).toLocaleString() : '?'));
+
+                        // Check if not expired
+                        if (payload.exp && payload.exp > Date.now() / 1000) {
+                            this.captureToken(v, 'localStorage/' + k);
+                            return true;
+                        } else {
+                            this.log('  EXPIRED -- skipping');
+                        }
+                    } catch (e) {
+                        this.log('  decode error: ' + e.message);
+                    }
+                }
+
+                // Atna tokens
+                if (v.startsWith('Atna|') && v.length > 50) {
+                    found++;
+                    this.log('Atna token in LS: ' + k + ' len=' + v.length);
+                    this.captureToken(v, 'localStorage/' + k);
+                    return true;
+                }
+            }
+
+            // Search sessionStorage
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const k = sessionStorage.key(i);
+                const v = sessionStorage.getItem(k);
+                if (!v) continue;
+
+                if (v.length > 50) {
+                    this.log('SS key: ' + k + ' len=' + v.length + ' prefix=' + v.substring(0, 20));
+                }
+
+                if (v.startsWith('eyJ') && v.length > 100) {
+                    found++;
+                    try {
+                        const payload = JSON.parse(atob(v.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+                        this.log('JWT found in SS: ' + k);
+                        this.log('  iss=' + (payload.iss || '?'));
+                        this.log('  exp=' + (payload.exp ? new Date(payload.exp * 1000).toLocaleString() : '?'));
+
+                        if (payload.exp && payload.exp > Date.now() / 1000) {
+                            this.captureToken(v, 'sessionStorage/' + k);
+                            return true;
+                        }
+                    } catch (e) { }
+                }
+
+                if (v.startsWith('Atna|') && v.length > 50) {
+                    found++;
+                    this.captureToken(v, 'sessionStorage/' + k);
+                    return true;
+                }
+            }
+
+            this.log('Storage scan done. Candidates found: ' + found + ', captured: ' + (this.token ? 'yes' : 'no'));
+            return !!this.token;
         }
 
         captureToken(token, source) {
@@ -509,6 +605,7 @@
                         <div style="display: flex; gap: 8px; margin-top: 8px;">
                             <button class="dt-btn" id="dt-export-qr" style="flex:1; background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px;">EXPORT TOKEN</button>
                             <button class="dt-btn" id="dt-import-qr" style="flex:1; background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px;">IMPORT TOKEN</button>
+                            <button class="dt-btn" id="dt-scan-storage" style="background:#16213e; color:#ff9900; border:1px solid #ff9900; font-size:13px; padding:10px; margin-top:4px;">SCAN STORAGE FOR TOKEN</button>
                         </div>
                     </div>
 
@@ -573,7 +670,7 @@
         //  EVENT BINDING
         // ==========================================
 
-         bindEvents() {
+        bindEvents() {
             // Stop clicks/touches from reaching Dolphin
             ['click', 'touchstart', 'touchend'].forEach(evt => {
                 this.el.panel.addEventListener(evt, e => {
@@ -605,7 +702,11 @@
                 const input = prompt('Paste token JSON (from QR scan):');
                 if (input) this.importToken(input);
             });
-            
+            document.getElementById('dt-scan-storage').addEventListener('click', e => {
+                e.stopPropagation();
+                this.extractTokenFromStorage();
+            });
+
             setInterval(() => this.updateTokenAge(), 15000);
         }
         // ==========================================
@@ -645,7 +746,7 @@
         //  INDUCT HANDLER
         // ==========================================
 
-         async handleInduct() {
+        async handleInduct() {
             const raw = this.el.tba.value.trim();
             const loc = this.el.loc.value.trim();
 
