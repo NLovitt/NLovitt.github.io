@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const DT_VERSION = '1.9';
+    const DT_VERSION = '1.91';
 
     if (window.__dolphinTool) {
         window.__dolphinTool.toggle();
@@ -723,7 +723,7 @@
 
                 // Small delay between requests to avoid rate limiting
                 if (i < tbas.length - 1) {
-                    await new Promise(r => setTimeout(r, 300));
+                    await new Promise(r => setTimeout(r, 50));
                 }
             }
 
