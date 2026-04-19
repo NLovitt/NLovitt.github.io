@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '2.10';
+    const BT_VERSION = '2.11';
 
     if (window.__bagTool) return;
 
@@ -422,9 +422,18 @@
                     (data) => {
                         this.addHistory(data.bagLabel, data.destinationLabel, false);
                         this.log('Guided link OK: ' + (data.bagLabel || value) + ' → ' + currentLoc.label);
-                        // Stay on same location — user will scan next bag or tap SKIP
-                        this.setStatus('SCAN BAG', currentLoc.label + ' ✓ last: ' + (data.bagLabel || value), 'ready');
-                        this.updateGuidedDetail(currentLoc.label, (this.walkIndex + 1) + '/' + this.walkList.length);
+                        // Auto-advance to next location
+                        this.walkIndex++;
+                        if (this.walkIndex >= this.walkList.length) {
+                            this.setStatus('DONE', 'Walk complete! All ' + this.walkList.length + ' locations done.', 'success');
+                            this.playSound('success');
+                            this.guidedState = 'SCAN_START';
+                            this.updateGuidedSkipBtn(false);
+                            if (this.el.guidedLocation) this.el.guidedLocation.textContent = '✓';
+                            if (this.el.guidedProgress) this.el.guidedProgress.textContent = '';
+                        } else {
+                            this.updateGuidedUI('prev: ' + (data.bagLabel || value));
+                        }
                     },
                     (errCode) => {
                         this.setStatus('LINK ERROR', errCode + ' | stay on: ' + currentLoc.label, 'error');
