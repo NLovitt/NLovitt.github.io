@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '2.00';
+    const BT_VERSION = '2.01';
 
     if (window.__bagTool) return;
 
@@ -26,7 +26,7 @@
      *   - Within each (bayNum, suffix): tier 1 then 2 then 3 (then 4 if not skipped)
      */
 
-    const AISLE_SUFFIXES = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    const AISLE_SUFFIXES = ['A', 'B', 'C', 'D', 'E', 'G'];
     const AISLE_TIERS    = [1, 2, 3, 4];
 
     function parseLocationLabel(label) {
