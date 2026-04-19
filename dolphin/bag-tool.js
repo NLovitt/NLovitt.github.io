@@ -118,9 +118,6 @@
     }
 
 
-        return walkList;
-    }
-
     /**
      * Resolve a scanned value to { label, scannableId }.
      * Handles:
