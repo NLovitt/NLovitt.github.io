@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const BT_VERSION = '2.11';
+    const BT_VERSION = '2.12';
 
     if (window.__bagTool) return;
 
@@ -72,10 +72,18 @@
 
     /**
      * Build ordered walk list from a starting bay label.
-     * Walk pattern per spec:
-     *   all suffix-A positions descending by bay (40A→39A→...→1A),
-     *   then all suffix-B  (40B→39B→...→1B), etc.
-     *   Within each (bay, suffix): tier 1 → 2 → 3 (→ 4 if not skipped)
+     *
+     * Walk pattern (per spec):
+     *   Bays are paired: (startBay, startBay-1), (startBay-2, startBay-3), ...
+     *   e.g. start=34 → pairs: [34,33], [32,31], [30,29], ...
+     *
+     *   For each pair, complete ALL suffixes A→G before moving to next pair:
+     *     pair [34,33]:
+     *       34.1A → 34.2A → 34.3A → 33.1A → 33.2A → 33.3A   (suffix A done)
+     *       34.1B → 34.2B → 34.3B → 33.1B → 33.2B → 33.3B   (suffix B done)
+     *       ... → G
+     *     pair [32,31]:
+     *       32.1A → 32.2A → 32.3A → 31.1A → ...
      *
      * Only includes entries that exist in LOCATION_MAP.
      */
@@ -87,17 +95,28 @@
         const tiers    = skip4thTier ? AISLE_TIERS.slice(0, 3) : AISLE_TIERS;
         const walkList = [];
 
-        for (const suffix of AISLE_SUFFIXES) {
-            for (let bay = startBay; bay >= 1; bay--) {
-                for (const tier of tiers) {
-                    const label = `${prefix}-${bay}.${tier}${suffix}`;
-                    const scannableId = LOCATION_MAP[label];
-                    if (scannableId) {
-                        walkList.push({ label, scannableId });
+        // Build pairs: [startBay, startBay-1], [startBay-2, startBay-3], ...
+        for (let hi = startBay; hi >= 1; hi -= 2) {
+            const lo   = hi - 1; // may be 0 or negative — handled below
+            const pair = lo >= 1 ? [hi, lo] : [hi];
+
+            // Complete A→G for this pair before moving on
+            for (const suffix of AISLE_SUFFIXES) {
+                for (const bay of pair) {
+                    for (const tier of tiers) {
+                        const label = `${prefix}-${bay}.${tier}${suffix}`;
+                        const scannableId = LOCATION_MAP[label];
+                        if (scannableId) {
+                            walkList.push({ label, scannableId });
+                        }
                     }
                 }
             }
         }
+
+        return walkList;
+    }
+
 
         return walkList;
     }
